@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redimensionador de Imagens 2000</title>
+    <style>
+        body {
+            background-color: #1A1A40;
+            color: #F4F4F9;
+            font-family: 'Courier New', Courier, monospace;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            color: #FF007A;
+            margin-top: 30px;
+        }
+        input, button, select {
+            background-color: #282850;
+            border: none;
+            color: #FF007A;
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none; /* Remove as setas dos input number no Chrome */
+            margin: 0;
+        }
+        button {
+            cursor: pointer;
+        }
+        #imagesContainer {
+            margin-top: 20px;
+        }
+        a {
+            color: #F4F4F9;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .section {
+            margin: 20px 0;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 600px) {
+            input, button, select {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .button-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Redimensionador de Imagens 2000</h1>
+
+    <div class="section">
+        <label for="imageInput">Escolher imagens:</label>
+        <input type="file" id="imageInput" multiple accept="image/*">
+        
+        <label for="fileType">Transformar em:</label>
+        <select id="fileType">
+            <option value="original">Manter Tipo Original</option>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
+        </select>
+    </div>
+
+    <div class="section">
+        <label for="horizontal">Largura (px):</label>
+        <input type="number" id="horizontal" value="0" min="1" max="3840">
+
+        <label for="vertical">Altura (px):</label>
+        <input type="number" id="vertical" value="0" min="1" max="2160">
+
+        <label for="preset">Preset de Imagem:</label>
+        <select id="preset">
+            <option value="">Selecionar</option>
+            <option value="1920x1080">Imagem Full HD (1920x1080)</option>
+            <option value="3840x2160">Imagem 4K (3840x2160)</option>
+            <option value="1080x1080">Instagram - Quadrado (1080x1080)</option>
+            <option value="1080x1350">Instagram - Retrato (1080x1350)</option>
+            <option value="1080x566">Instagram - Paisagem (1080x566)</option>
+            <option value="320x320">Instagram - Foto de Perfil (320x320)</option>
+            <option value="1080x1920">Instagram - Stories (1080x1920)</option>
+            <option value="2560x1440">YouTube - Banner (2560x1440)</option>
+            <option value="1546x423">YouTube - Área Segura (1546x423)</option>
+            <option value="1280x720">YouTube - Thumbnail (1280x720)</option>
+            <option value="1200x1200">Facebook - Post Quadrado (1200x1200)</option>
+            <option value="1200x630">Facebook - Post Retangular (1200x630)</option>
+            <option value="820x312">Facebook - Capa de Página (820x312)</option>
+        </select>
+    </div>
+
+    <div class="section button-container">
+        <button id="generateImages">Gerar Imagens</button>
+        <button id="downloadAll">Baixar Todas as Imagens</button>
+        <button id="downloadZip">Baixar Todas as Imagens em ZIP</button>
+    </div>
+
+    <div id="imagesContainer" class="section">
+        <h2>Lista de Imagens Geradas:</h2>
+        <p id="noImagesMessage">Nenhuma imagem gerada ainda</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        const imagesContainer = document.getElementById('imagesContainer');
+        const noImagesMessage = document.getElementById('noImagesMessage');
+        const downloadAllButton = document.getElementById('downloadAll');
+        const generateImagesButton = document.getElementById('generateImages');
+        const downloadZipButton = document.getElementById('downloadZip');
+        let downloadLinks = [];
+        let fileNames = [];
+        let imageBlobs = [];
+
+        // Preset de Tamanho de Imagem
+        document.getElementById('preset').addEventListener('change', function() {
+            const preset = this.value.split('x');
+            if (preset.length === 2) {
+                document.getElementById('horizontal').value = preset[0];
+                document.getElementById('vertical').value = preset[1];
+            }
+        });
+
+        // Gera Imagens ao Clicar no Botão
+        generateImagesButton.addEventListener('click', function() {
+            const files = document.getElementById('imageInput').files;
+            imagesContainer.innerHTML = '<h2>Lista de Imagens Geradas:</h2>';
+            noImagesMessage.style.display = 'none';
+            downloadLinks = [];
+            fileNames = [];
+            imageBlobs = [];
+
+            const width = Math.min(parseInt(document.getElementById('horizontal').value), 3840);
+            const height = Math.min(parseInt(document.getElementById('vertical').value), 2160);
+            const fileTypeElement = document.getElementById('fileType');
+            const fileType = fileTypeElement.value;
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+
+                        // Configura o tamanho do canvas
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        // Desenha a imagem redimensionada no canvas
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Determina o novo nome do arquivo
+                        const fileExtension = fileType === "original" ? file.name.split('.').pop() : fileType;
+                        const newFileName = `${file.name.split('.')[0]} (${width}x${height}).${fileExtension}`;
+                        fileNames.push(newFileName);
+
+                        // Cria um link para download da imagem
+                        canvas.toBlob(blob => {
+                            if (blob) {
+                                const downloadLink = document.createElement('a');
+                                downloadLink.href = URL.createObjectURL(blob);
+                                downloadLink.download = newFileName;
+                                downloadLink.textContent = `Baixar: ${newFileName}`;
+                                imagesContainer.appendChild(downloadLink);
+                                imagesContainer.appendChild(document.createElement('br'));
+
+                                downloadLinks.push(downloadLink.href);
+                                imageBlobs.push({ name: newFileName, blob });
+                            }
+                        }, `image/${fileExtension}`);
+                    };
+                };
+                reader.readAsDataURL(file);
+            });
+
+            if (fileNames.length === 0) {
+                noImagesMessage.style.display = 'block';
+            }
+        });
+
+        // Baixar Todas as Imagens
+        downloadAllButton.addEventListener('click', function() {
+            downloadLinks.forEach((link, index) => {
+                const a = document.createElement('a');
+                a.href = link;
+                a.download = fileNames[index];
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+        });
+
+        // Baixar Todas as Imagens em ZIP
+        downloadZipButton.addEventListener('click', async function() {
+            const zip = new JSZip();
+            const now = new Date();
+            const formattedDate = now.toLocaleString('pt-BR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+            }).replace(/\//g, '-').replace(/, /g, ' - ');
+
+            imageBlobs.forEach(({ name, blob }) => {
+                zip.file(name, blob);
+            });
+            const content = await zip.generateAsync({ type: 'blob' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = `Imagens redimensionadas - APK World ${formattedDate}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    </script>
+</body>
+</html>
