@@ -24,15 +24,9 @@
             padding: 10px;
             margin: 10px;
             font-size: 16px;
-        }
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-            -webkit-appearance: none; /* Remove as setas dos input number no Chrome */
-            margin: 0;
-        }
-        button {
             cursor: pointer;
         }
+
         #imagesContainer {
             margin-top: 20px;
         }
@@ -43,33 +37,100 @@
         a:hover {
             text-decoration: underline;
         }
-        .section {
-            margin: 20px 0;
+
+        /* Remove as setas dos input number no Chrome */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
-        .button-container {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
+        /* Deixa a página mais organizada para telas com menos de 600px de largura */
         @media (max-width: 600px) {
             input, button, select {
                 width: 100%;
                 box-sizing: border-box;
             }
-            .button-container {
-                flex-direction: column;
-            }
+        }
+
+        #popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 26, 64, 0.9); /* Fundo semi-transparente */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #popupContent {
+            background-color: #282850;
+            color: #FF007A;
+            border: 2px solid #FF007A;
+            padding: 20px;
+            text-align: center;
+            width: 300px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #popupMessage {
+            margin-bottom: 20px;
+        }
+        #closePopup {
+            background-color: #1A1A40;
+            color: #F4F4F9;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        #progressPopup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 26, 64, 0.9); /* Fundo semi-transparente */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #progressContent {
+            background-color: #282850;
+            color: #FF007A;
+            border: 2px solid #FF007A;
+            padding: 20px;
+            text-align: center;
+            width: 300px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #progressBar {
+            background-color: #1A1A40;
+            border: 2px solid #FF007A;
+            height: 20px;
+            margin-top: 10px;
+            position: relative;
+            width: 100%;
+        }
+        #progressBarFill {
+            background-color: #FF007A;
+            height: 100%;
+            width: 0%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: width 0.3s;
         }
     </style>
 </head>
 <body>
     <h1>Redimensionador de Imagens 2000</h1>
 
-    <div class="section">
+    <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
         <label for="imageInput">Escolher imagens:</label>
         <input type="file" id="imageInput" multiple accept="image/*">
-        
+    
         <label for="fileType">Transformar em:</label>
         <select id="fileType">
             <option value="original">Manter Tipo Original</option>
@@ -77,9 +138,23 @@
             <option value="jpeg">JPEG</option>
             <option value="webp">WebP</option>
         </select>
-    </div>
+    
+        <label for="jpegQuality" id="jpegQualityLabel" style="display: none;">Qualidade:</label>
+        <select id="jpegQuality" style="display: none;">
+            <option value="1.0">100%</option>
+            <option value="0.9">90%</option>
+            <option value="0.8">80%</option>
+            <option value="0.7">70%</option>
+            <option value="0.6">60%</option>
+            <option value="0.5">50%</option>
+            <option value="0.4">40%</option>
+            <option value="0.3">30%</option>
+            <option value="0.2">20%</option>
+            <option value="0.1">10%</option>
+        </select>
+    </div>    
 
-    <div class="section">
+    <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
         <label for="horizontal">Largura (px):</label>
         <input type="number" id="horizontal" value="0" min="1" max="3840">
 
@@ -105,7 +180,7 @@
         </select>
     </div>
 
-    <div class="section button-container">
+    <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
         <button id="generateImages">Gerar Imagens</button>
         <button id="downloadAll">Baixar Todas as Imagens</button>
         <button id="downloadZip">Baixar Todas as Imagens em ZIP</button>
@@ -115,6 +190,22 @@
         <h2>Lista de Imagens Geradas:</h2>
         <p id="noImagesMessage">Nenhuma imagem gerada ainda</p>
     </div>
+
+    <div id="popup" style="display: none;">
+        <div id="popupContent">
+            <p id="popupMessage">Nenhuma imagem gerada ainda!</p>
+            <button id="closePopup">Fechar</button>
+        </div>
+    </div>
+    
+    <div id="progressPopup" style="display: none;">
+        <div id="progressContent">
+            <p id="progressMessage">Gerando imagens...</p>
+            <div id="progressBar">
+                <div id="progressBarFill"></div>
+            </div>
+        </div>
+    </div>    
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
@@ -127,7 +218,11 @@
         let fileNames = [];
         let imageBlobs = [];
 
-        // Preset de Tamanho de Imagem
+        let totalImages = 0;
+        let processedImages = 0;
+        let imageProgress = [];
+
+        // Preset de Tamanho de Imagem 
         document.getElementById('preset').addEventListener('change', function() {
             const preset = this.value.split('x');
             if (preset.length === 2) {
@@ -138,19 +233,37 @@
 
         // Gera Imagens ao Clicar no Botão
         generateImagesButton.addEventListener('click', function() {
+            document.getElementById('progressBarFill').style.width = '0%'; // Zera a barra de progresso
+
+            if (document.getElementById('imageInput').files.length === 0) {
+                showPopup('Selecione ao menos uma imagem para gerar.');
+                return;
+            }
+
             const files = document.getElementById('imageInput').files;
             imagesContainer.innerHTML = '<h2>Lista de Imagens Geradas:</h2>';
             noImagesMessage.style.display = 'none';
             downloadLinks = [];
             fileNames = [];
             imageBlobs = [];
+            totalImages = files.length;
+            processedImages = 0;
+            imageProgress = new Array(totalImages).fill(0);
 
             const width = Math.min(parseInt(document.getElementById('horizontal').value), 3840);
             const height = Math.min(parseInt(document.getElementById('vertical').value), 2160);
+
+            if (width < 1 || height < 1) {
+                showPopup('A largura e a altura devem ser maiores que 0.');
+                return;
+            }
+
             const fileTypeElement = document.getElementById('fileType');
             const fileType = fileTypeElement.value;
 
-            Array.from(files).forEach(file => {
+            showProgressPopup(); // Mostra o pop-up de progresso
+
+            Array.from(files).forEach((file, index) => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const img = new Image();
@@ -175,6 +288,10 @@
                         // Cria um link para download da imagem
                         canvas.toBlob(blob => {
                             if (blob) {
+                                // Atualiza o progresso individual e total
+                                imageProgress[index] = 100; // Assume que cada imagem atinge 100% após o processamento
+                                updateProgressBar();
+
                                 const downloadLink = document.createElement('a');
                                 downloadLink.href = URL.createObjectURL(blob);
                                 downloadLink.download = newFileName;
@@ -184,8 +301,16 @@
 
                                 downloadLinks.push(downloadLink.href);
                                 imageBlobs.push({ name: newFileName, blob });
+                                
+                                // Incrementa o contador de imagens processadas
+                                processedImages++;
+
+                                // Verifica se todas as imagens foram processadas
+                                if (processedImages === totalImages) {
+                                    closeProgressPopup(); // Fecha o pop-up de progresso
+                                }
                             }
-                        }, `image/${fileExtension}`);
+                        }, `image/${fileExtension}`, fileType === "jpeg" ? parseFloat(document.getElementById('jpegQuality').value) : 1.0);
                     };
                 };
                 reader.readAsDataURL(file);
@@ -198,6 +323,11 @@
 
         // Baixar Todas as Imagens
         downloadAllButton.addEventListener('click', function() {
+            if (downloadLinks.length === 0) {
+                showPopup('Nenhuma imagem foi gerada para baixar.');
+                return;
+            }
+
             downloadLinks.forEach((link, index) => {
                 const a = document.createElement('a');
                 a.href = link;
@@ -210,15 +340,14 @@
 
         // Baixar Todas as Imagens em ZIP
         downloadZipButton.addEventListener('click', async function() {
+            if (downloadLinks.length === 0) {
+                showPopup('Nenhuma imagem foi gerada para baixar em ZIP.');
+                return;
+            }
+
             const zip = new JSZip();
-            const now = new Date();
-            const formattedDate = now.toLocaleString('pt-BR', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-            }).replace(/\//g, '-').replace(/, /g, ' - ');
+            const width = Math.min(parseInt(document.getElementById('horizontal').value), 3840);
+            const height = Math.min(parseInt(document.getElementById('vertical').value), 2160);
 
             imageBlobs.forEach(({ name, blob }) => {
                 zip.file(name, blob);
@@ -226,11 +355,58 @@
             const content = await zip.generateAsync({ type: 'blob' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(content);
-            a.download = `Imagens redimensionadas - APK World ${formattedDate}.zip`;
+            a.download = `Imagens Redimensionadas (${width}x${height}) - APK World.zip`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
         });
+
+        document.getElementById('fileType').addEventListener('change', function() {
+            const jpegQualityLabel = document.getElementById('jpegQualityLabel');
+            const jpegQualitySelect = document.getElementById('jpegQuality');
+            if (this.value === 'jpeg') {
+                jpegQualityLabel.style.display = 'inline';
+                jpegQualitySelect.style.display = 'inline';
+            } else {
+                jpegQualityLabel.style.display = 'none';
+                jpegQualitySelect.style.display = 'none';
+            }
+        });
+
+        // Função para mostrar o pop-up de caso de exceção
+        function showPopup(message) {
+            const popup = document.getElementById('popup');
+            const popupMessage = document.getElementById('popupMessage');
+            popupMessage.textContent = message;
+            popup.style.display = 'flex';
+        }
+
+        // Função para fechar o pop-up de caso de exceção
+        document.getElementById('closePopup').addEventListener('click', function() {
+            document.getElementById('popup').style.display = 'none';
+        });
+
+        // Função para mostrar o pop-up de progresso
+        function showProgressPopup() {
+            document.getElementById('progressPopup').style.display = 'flex';
+        }
+
+        // Função para atualizar a barra de progresso
+        function updateProgressBar() {
+            const totalProgress = imageProgress.reduce((acc, progress) => acc + progress, 0);
+            const averageProgress = totalProgress / totalImages;
+            document.getElementById('progressBarFill').style.width = `${averageProgress}%`;
+            
+            // Fechar pop-up se todas as imagens estiverem processadas
+            if (processedImages === totalImages) {
+                closeProgressPopup();
+            }
+        }
+
+        // Função para fechar o pop-up de progresso
+        function closeProgressPopup() {
+            document.getElementById('progressPopup').style.display = 'none';
+        }
     </script>
 </body>
 </html>
