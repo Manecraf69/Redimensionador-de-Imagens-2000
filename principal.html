@@ -122,6 +122,62 @@
             left: 0;
             transition: width 0.3s;
         }
+
+        /* Adicione esta nova classe */
+        .image-preview {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .image-preview img {
+            max-width: 100px;
+            max-height: 100px;
+            margin-right: 10px;
+            border: 1px solid #FF007A;
+            cursor: pointer;
+        }
+        /* Estilo para o fundo escurecido */
+        #imageModal {
+            display: none;
+            height: 100vh;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        /* Estilo para a imagem no pop-up */
+        #imageModal img {
+            position: absolute;
+            top: 50%; /* Posiciona o centro da imagem no meio da tela verticalmente */
+            left: 50%; /* Posiciona o centro da imagem no meio da tela horizontalmente */
+            transform: translate(-50%, -50%); /* Ajusta a posição para centralizar a imagem */
+            max-width: 80%;
+            max-height: 80%;
+            margin: auto;
+            display: block;
+            border: 2px solid #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.7);
+            transition: transform 0.25s ease, left 0.25s ease, top 0.25s ease;
+            cursor: grab;
+        }
+
+        /* Estilo para fechar o pop-up */
+        .closeModal {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1001; /* Garantir que o botão "X" fique sempre acima da imagem */
+        }
     </style>
 </head>
 <body>
@@ -156,14 +212,14 @@
 
     <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
         <label for="horizontal">Largura (px):</label>
-        <input type="number" id="horizontal" value="0" min="1" max="3840">
+        <input type="number" id="horizontal" placeholder="Digite um valor">
 
         <label for="vertical">Altura (px):</label>
-        <input type="number" id="vertical" value="0" min="1" max="2160">
+        <input type="number" id="vertical" placeholder="Digite um valor">
 
-        <label for="preset">Preset de Imagem:</label>
+        <label for="preset">Preset de tamanho:</label>
         <select id="preset">
-            <option value="">Selecionar</option>
+            <option value="">Personalizado</option>
             <option value="1920x1080">Imagem Full HD (1920x1080)</option>
             <option value="3840x2160">Imagem 4K (3840x2160)</option>
             <option value="1080x1080">Instagram - Quadrado (1080x1080)</option>
@@ -187,7 +243,7 @@
     </div>
 
     <div id="imagesContainer" class="section">
-        <h2>Lista de Imagens Geradas:</h2>
+        <h2>Lista de imagens geradas:</h2>
         <p id="noImagesMessage">Nenhuma imagem gerada ainda</p>
     </div>
 
@@ -205,7 +261,13 @@
                 <div id="progressBarFill"></div>
             </div>
         </div>
-    </div>    
+    </div>
+
+    <!-- Modal para visualização de imagem -->
+    <div id="imageModal">
+        <span class="closeModal">&times;</span>
+        <img id="modalImage">
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
@@ -221,6 +283,14 @@
         let totalImages = 0;
         let processedImages = 0;
         let imageProgress = [];
+
+        // Variáveis para controle do zoom
+        let zoomLevel = 0; // 0: sem zoom, 1: zoom nível 1, 2: zoom nível 2
+        let modalImg = document.getElementById('modalImage');
+
+        let isDragging = false;
+        let initialX, initialY;
+        let offsetX = 0, offsetY = 0;
 
         // Preset de Tamanho de Imagem 
         document.getElementById('preset').addEventListener('change', function() {
@@ -250,8 +320,8 @@
             processedImages = 0;
             imageProgress = new Array(totalImages).fill(0);
 
-            const width = Math.min(parseInt(document.getElementById('horizontal').value), 3840);
-            const height = Math.min(parseInt(document.getElementById('vertical').value), 2160);
+            const width = Math.min(parseInt(document.getElementById('horizontal').value), 5000);
+            const height = Math.min(parseInt(document.getElementById('vertical').value), 5000);
 
             if (width < 1 || height < 1) {
                 showPopup('A largura e a altura devem ser maiores que 0.');
@@ -296,7 +366,24 @@
                                 downloadLink.href = URL.createObjectURL(blob);
                                 downloadLink.download = newFileName;
                                 downloadLink.textContent = `Baixar: ${newFileName}`;
-                                imagesContainer.appendChild(downloadLink);
+
+                                // Cria o contêiner da pré-visualização
+                                const previewContainer = document.createElement('div');
+                                previewContainer.classList.add('image-preview');
+                                
+                                // Adiciona a pré-visualização da imagem
+                                const previewImage = document.createElement('img');
+                                previewImage.src = URL.createObjectURL(blob);
+                                previewImage.addEventListener('click', function() {
+                                    openImageModal(previewImage.src);
+                                });
+                                previewContainer.appendChild(previewImage);
+
+                                // Adiciona o link de download
+                                previewContainer.appendChild(downloadLink);
+
+                                // Adiciona o contêiner ao DOM
+                                imagesContainer.appendChild(previewContainer);
                                 imagesContainer.appendChild(document.createElement('br'));
 
                                 downloadLinks.push(downloadLink.href);
@@ -393,9 +480,8 @@
 
         // Função para atualizar a barra de progresso
         function updateProgressBar() {
-            const totalProgress = imageProgress.reduce((acc, progress) => acc + progress, 0);
-            const averageProgress = totalProgress / totalImages;
-            document.getElementById('progressBarFill').style.width = `${averageProgress}%`;
+            const totalProgress = imageProgress.reduce((sum, progress) => sum + progress, 0) / totalImages;
+            document.getElementById('progressBarFill').style.width = `${totalProgress}%`;
             
             // Fechar pop-up se todas as imagens estiverem processadas
             if (processedImages === totalImages) {
@@ -407,6 +493,121 @@
         function closeProgressPopup() {
             document.getElementById('progressPopup').style.display = 'none';
         }
+
+        // Função para abrir o modal com a imagem em tamanho maior
+        function openImageModal(src) {
+            const modal = document.getElementById('imageModal');
+            modalImg.src = src;
+            modal.style.display = "block";
+        }
+
+        // Fechar o modal ao clicar no "X"
+        document.querySelector('.closeModal').addEventListener('click', function() {
+            document.getElementById('imageModal').style.display = "none";
+            resetZoom();
+            modalImg.style.transform = 'scale(1) translate(-50%, -50%)';
+            zoomLevel = 0;
+            modalImg.style.marginLeft = '0px';
+            modalImg.style.marginTop = '0px';
+        });
+
+        // Fechar o modal ao clicar fora da imagem
+        document.getElementById('imageModal').addEventListener('click', function(event) {
+            if (event.target === document.getElementById('imageModal')) {
+                document.getElementById('imageModal').style.display = "none";
+                resetZoom();
+                zoomLevel = 0;
+                modalImg.style.marginLeft = '0px';
+                modalImg.style.marginTop = '0px';
+            }
+        });
+
+        // Função para aplicar o zoom in, focando no centro da tela
+        modalImg.addEventListener('dblclick', function() {
+            if (zoomLevel === 0) {
+                zoomLevel = 1;
+                this.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            } else if (zoomLevel === 1) {
+                zoomLevel = 2;
+                this.style.transform = 'translate(-50%, -50%) scale(2)';
+            } else {
+                zoomLevel = 0;
+                this.style.transform = 'translate(-50%, -50%) scale(1)';
+                modalImg.style.marginLeft = '0px';
+                modalImg.style.marginTop = '0px';
+            }
+        });
+
+        // Função para resetar o zoom ao fechar o modal ou ao clicar novamente na imagem
+        function resetZoom() {
+            zoomLevel = 0;
+            modalImg.style.transform = "translate(-50%, -50%) scale(1)";
+            modalImg.style.left = "50%";  // Certifica-se de centralizar horizontalmente
+            modalImg.style.top = "50%";   // Certifica-se de centralizar verticalmente
+        }
+
+        // Prevenir comportamento padrão de arraste da imagem
+        modalImg.addEventListener('dragstart', function(e) {
+            e.preventDefault();
+        });
+
+        modalImg.addEventListener('drag', function(e) {
+            e.preventDefault();
+        });
+
+        // Iniciar o movimento ao clicar e arrastar
+        modalImg.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            isDragging = true;
+            initialX = e.clientX;
+            initialY = e.clientY;
+            modalImg.style.cursor = 'grabbing';
+        });
+
+        // Movimento do mouse
+        modalImg.addEventListener('mousemove', function(e) {
+            if (isDragging) {
+                const deltaX = e.clientX - initialX;
+                const deltaY = e.clientY - initialY;
+
+                // Atualiza as margens da imagem com base no movimento do mouse
+                modalImg.style.marginLeft = `${parseInt(modalImg.style.marginLeft || 0) + deltaX}px`;
+                modalImg.style.marginTop = `${parseInt(modalImg.style.marginTop || 0) + deltaY}px`;
+
+                // Atualiza as posições iniciais para o próximo movimento
+                initialX = e.clientX;
+                initialY = e.clientY;
+            }
+        });
+
+        // Parar o movimento ao soltar o mouse
+        modalImg.addEventListener('mouseup', function() {
+            isDragging = false;
+            modalImg.style.cursor = 'grab';
+        });
+
+        // Parar o movimento se o mouse sair da imagem
+        modalImg.addEventListener('mouseleave', function() {
+            isDragging = false;
+            modalImg.style.cursor = 'grab';
+        });
+
+        // Modificação para atualizar o preset para "Personalizado" quando o valor for alterado manualmente
+        document.getElementById('horizontal').addEventListener('input', function() {
+            document.getElementById('preset').value = "";
+        });
+        document.getElementById('vertical').addEventListener('input', function() {
+            document.getElementById('preset').value = "";
+        });
+
+        // Para remover os zeros à esquerda quando o usuário inserir um valor
+        document.getElementById('horizontal').addEventListener('input', function() {
+            this.value = parseInt(this.value, 10) || '';
+        });
+
+        document.getElementById('vertical').addEventListener('input', function() {
+            this.value = parseInt(this.value, 10) || '';
+        });
     </script>
 </body>
 </html>
