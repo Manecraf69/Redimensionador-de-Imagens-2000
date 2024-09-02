@@ -52,6 +52,7 @@
             }
         }
 
+        /* Estilo para os popups de caso de exceção */
         #popup {
             position: fixed;
             top: 0;
@@ -84,6 +85,7 @@
             cursor: pointer;
         }
 
+        /* Estilo para a barra de progresso da renderização */
         #progressPopup {
             position: fixed;
             top: 0;
@@ -150,7 +152,6 @@
             overflow: hidden;
             background-color: rgba(0, 0, 0, 0.8);
         }
-
         /* Estilo para a imagem no pop-up */
         #imageModal img {
             position: absolute;
@@ -166,7 +167,6 @@
             transition: transform 0.25s ease, left 0.25s ease, top 0.25s ease;
             cursor: grab;
         }
-
         /* Estilo para fechar o pop-up */
         .closeModal {
             position: absolute;
@@ -193,6 +193,7 @@
             <option value="png">PNG</option>
             <option value="jpeg">JPEG</option>
             <option value="webp">WebP</option>
+            <option value="custom">Personalizado</option>
         </select>
     
         <label for="jpegQuality" id="jpegQualityLabel" style="display: none;">Qualidade:</label>
@@ -208,6 +209,8 @@
             <option value="0.2">20%</option>
             <option value="0.1">10%</option>
         </select>
+
+        <input type="text" id="customFileType" placeholder="Digite o tipo de arquivo" style="display: none;">
     </div>    
 
     <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
@@ -323,13 +326,25 @@
             const width = Math.min(parseInt(document.getElementById('horizontal').value), 5000);
             const height = Math.min(parseInt(document.getElementById('vertical').value), 5000);
 
-            if (width < 1 || height < 1) {
+            if (!width || !height) {
                 showPopup('A largura e a altura devem ser maiores que 0.');
                 return;
             }
 
+            // Usar o tipo de arquivo personalizado na geração de imagens
             const fileTypeElement = document.getElementById('fileType');
-            const fileType = fileTypeElement.value;
+            let fileType = fileTypeElement.value;
+
+            if (fileType === 'custom') {
+                const customFileType = document.getElementById('customFileType').value.trim().replace(/^\.+/, '');
+                
+                if (!customFileType) {
+                    showPopup('Por favor, especifique um tipo de arquivo antes de continuar.');
+                    return; // Interrompe o processo até que o tipo de arquivo seja especificado
+                }
+
+                fileType = customFileType; // Define o tipo de arquivo como o valor inserido pelo usuário
+            }
 
             showProgressPopup(); // Mostra o pop-up de progresso
 
@@ -448,15 +463,25 @@
             document.body.removeChild(a);
         });
 
+        // Mostrar ou esconder o campo de texto dependendo da seleção
         document.getElementById('fileType').addEventListener('change', function() {
+            const customFileTypeInput = document.getElementById('customFileType');
             const jpegQualityLabel = document.getElementById('jpegQualityLabel');
             const jpegQualitySelect = document.getElementById('jpegQuality');
-            if (this.value === 'jpeg') {
-                jpegQualityLabel.style.display = 'inline';
-                jpegQualitySelect.style.display = 'inline';
-            } else {
+
+            if (this.value === 'custom') {
+                customFileTypeInput.style.display = 'inline';
                 jpegQualityLabel.style.display = 'none';
                 jpegQualitySelect.style.display = 'none';
+            } else {
+                customFileTypeInput.style.display = 'none';
+                if (this.value === 'jpeg') {
+                    jpegQualityLabel.style.display = 'inline';
+                    jpegQualitySelect.style.display = 'inline';
+                } else {
+                    jpegQualityLabel.style.display = 'none';
+                    jpegQualitySelect.style.display = 'none';
+                }
             }
         });
 
@@ -523,20 +548,33 @@
         });
 
         // Função para aplicar o zoom in, focando no centro da tela
-        modalImg.addEventListener('dblclick', function() {
+        function applyZoom(e) {
+            e.preventDefault();
+
             if (zoomLevel === 0) {
                 zoomLevel = 1;
-                this.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                modalImg.style.transform = 'translate(-50%, -50%) scale(1.5)';
             } else if (zoomLevel === 1) {
                 zoomLevel = 2;
-                this.style.transform = 'translate(-50%, -50%) scale(2)';
+                modalImg.style.transform = 'translate(-50%, -50%) scale(2)';
             } else {
                 zoomLevel = 0;
-                this.style.transform = 'translate(-50%, -50%) scale(1)';
+                modalImg.style.transform = 'translate(-50%, -50%) scale(1)';
                 modalImg.style.marginLeft = '0px';
                 modalImg.style.marginTop = '0px';
             }
+        }
+        // Detectar o duplo toque em dispositivos móveis
+        let lastTouchEnd = 0;
+        modalImg.addEventListener('touchend', function(e) {
+            const now = new Date().getTime();
+            if (now - lastTouchEnd <= 300) {
+                applyZoom(e);
+            }
+            lastTouchEnd = now;
         });
+        // Adicionar o evento para desktop e mobile
+        modalImg.addEventListener('dblclick', applyZoom);
 
         // Função para resetar o zoom ao fechar o modal ou ao clicar novamente na imagem
         function resetZoom() {
@@ -555,36 +593,49 @@
             e.preventDefault();
         });
 
-        // Iniciar o movimento ao clicar e arrastar
-        modalImg.addEventListener('mousedown', function(e) {
+        // Função para iniciar o movimento (mouse e toque)
+        function startDrag(e) {
             e.preventDefault();
             isDragging = true;
-            initialX = e.clientX;
-            initialY = e.clientY;
+            initialX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
+            initialY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
             modalImg.style.cursor = 'grabbing';
-        });
+        }
 
-        // Movimento do mouse
-        modalImg.addEventListener('mousemove', function(e) {
+        // Função para mover a imagem (mouse e toque)
+        function moveImage(e) {
             if (isDragging) {
-                const deltaX = e.clientX - initialX;
-                const deltaY = e.clientY - initialY;
+                const currentX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
+                const currentY = e.type === 'mousemove' ? e.clientY : e.touches[0].clientY;
 
-                // Atualiza as margens da imagem com base no movimento do mouse
+                const deltaX = currentX - initialX;
+                const deltaY = currentY - initialY;
+
+                // Atualiza as margens da imagem com base no movimento
                 modalImg.style.marginLeft = `${parseInt(modalImg.style.marginLeft || 0) + deltaX}px`;
                 modalImg.style.marginTop = `${parseInt(modalImg.style.marginTop || 0) + deltaY}px`;
 
                 // Atualiza as posições iniciais para o próximo movimento
-                initialX = e.clientX;
-                initialY = e.clientY;
+                initialX = currentX;
+                initialY = currentY;
             }
-        });
+        }
 
-        // Parar o movimento ao soltar o mouse
-        modalImg.addEventListener('mouseup', function() {
+        // Função para parar o movimento (mouse e toque)
+        function stopDrag() {
             isDragging = false;
             modalImg.style.cursor = 'grab';
-        });
+        }
+
+        // Adiciona os eventos para mouse e toque
+        modalImg.addEventListener('mousedown', startDrag);
+        modalImg.addEventListener('touchstart', startDrag);
+
+        modalImg.addEventListener('mousemove', moveImage);
+        modalImg.addEventListener('touchmove', moveImage);
+
+        modalImg.addEventListener('mouseup', stopDrag);
+        modalImg.addEventListener('touchend', stopDrag);
 
         // Parar o movimento se o mouse sair da imagem
         modalImg.addEventListener('mouseleave', function() {
@@ -604,7 +655,6 @@
         document.getElementById('horizontal').addEventListener('input', function() {
             this.value = parseInt(this.value, 10) || '';
         });
-
         document.getElementById('vertical').addEventListener('input', function() {
             this.value = parseInt(this.value, 10) || '';
         });
