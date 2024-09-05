@@ -189,7 +189,7 @@
     
         <label for="fileType">Transformar em:</label>
         <select id="fileType">
-            <option value="original">Manter Tipo Original</option>
+            <option value="original">Manter tipo original</option>
             <option value="png">PNG</option>
             <option value="jpeg">JPEG</option>
             <option value="webp">WebP</option>
@@ -223,6 +223,7 @@
         <label for="preset">Preset de tamanho:</label>
         <select id="preset">
             <option value="">Personalizado</option>
+            <option value="original">Manter proporção original</option>
             <option value="1920x1080">Imagem Full HD (1920x1080)</option>
             <option value="3840x2160">Imagem 4K (3840x2160)</option>
             <option value="1080x1080">Instagram - Quadrado (1080x1080)</option>
@@ -295,12 +296,42 @@
         let initialX, initialY;
         let offsetX = 0, offsetY = 0;
 
-        // Preset de Tamanho de Imagem 
+        // Preset de Tamanho de Imagem
         document.getElementById('preset').addEventListener('change', function() {
-            const preset = this.value.split('x');
-            if (preset.length === 2) {
-                document.getElementById('horizontal').value = preset[0];
-                document.getElementById('vertical').value = preset[1];
+            const preset = this.value;
+
+            // Obtém os elementos de input de largura e altura
+            const horizontalInput = document.getElementById('horizontal');
+            const verticalInput = document.getElementById('vertical');
+
+            // Verifica se o preset é "original"
+            if (preset === 'original') {
+                // Desativa os campos de input de largura e altura
+                horizontalInput.disabled = true;
+                verticalInput.disabled = true;
+                
+                // Altera o placeholder para "Original"
+                horizontalInput.placeholder = 'Original';
+                verticalInput.placeholder = 'Original';
+                
+                // Limpa os valores dos campos
+                horizontalInput.value = '';
+                verticalInput.value = '';
+            } else {
+                // Habilita os campos de input de largura e altura
+                horizontalInput.disabled = false;
+                verticalInput.disabled = false;
+                
+                // Altera o placeholder de volta para um valor padrão, se necessário
+                horizontalInput.placeholder = 'Digite um valor';
+                verticalInput.placeholder = 'Digite um valor';
+
+                // Atualiza os valores dos inputs com base no preset
+                const presetValues = preset.split('x');
+                if (presetValues.length === 2) {
+                    horizontalInput.value = presetValues[0];
+                    verticalInput.value = presetValues[1];
+                }
             }
         });
 
@@ -314,7 +345,7 @@
             }
 
             const files = document.getElementById('imageInput').files;
-            imagesContainer.innerHTML = '<h2>Lista de Imagens Geradas:</h2>';
+            imagesContainer.innerHTML = '';
             noImagesMessage.style.display = 'none';
             downloadLinks = [];
             fileNames = [];
@@ -326,7 +357,10 @@
             const width = Math.min(parseInt(document.getElementById('horizontal').value), 5000);
             const height = Math.min(parseInt(document.getElementById('vertical').value), 5000);
 
-            if (!width || !height) {
+            const presetElement = document.getElementById('preset');
+            const preset = presetElement.value;
+
+            if (preset !== 'original' && (!width || !height)) {
                 showPopup('A largura e a altura devem ser maiores que 0.');
                 return;
             }
@@ -355,20 +389,36 @@
                     img.src = e.target.result;
 
                     img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
 
-                        // Configura o tamanho do canvas
+                    // Configura o tamanho do canvas
+                    if (preset === 'original') {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                    } else {
                         canvas.width = width;
                         canvas.height = height;
+                    }
 
-                        // Desenha a imagem redimensionada no canvas
+                    // Desenha a imagem no canvas
+                    if (preset === 'original') {
+                        ctx.drawImage(img, 0, 0);
+                    } else {
                         ctx.drawImage(img, 0, 0, width, height);
+                    }
 
-                        // Determina o novo nome do arquivo
-                        const fileExtension = fileType === "original" ? file.name.split('.').pop() : fileType;
-                        const newFileName = `${file.name.split('.')[0]} (${width}x${height}).${fileExtension}`;
-                        fileNames.push(newFileName);
+                    // Determina o novo nome do arquivo
+                    const fileExtension = fileType === "original" ? file.name.split('.').pop() : fileType;
+                    let newFileName;  // Declare fora do bloco condicional
+
+                    if (preset === 'original') {
+                        newFileName = `${file.name.split('.')[0]} (${img.width}x${img.height}).${fileExtension}`;
+                    } else {
+                        newFileName = `${file.name.split('.')[0]} (${width}x${height}).${fileExtension}`;
+                    }
+
+                    fileNames.push(newFileName);
 
                         // Cria um link para download da imagem
                         canvas.toBlob(blob => {
