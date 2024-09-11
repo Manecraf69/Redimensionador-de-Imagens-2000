@@ -7,7 +7,7 @@
     <style>
         body {
             background-color: #1A1A40;
-            color: #F4F4F9;
+            color: #ffffff;
             font-family: 'Courier New', Courier, monospace;
             text-align: center;
             margin: 0;
@@ -31,7 +31,7 @@
             margin-top: 20px;
         }
         a {
-            color: #F4F4F9;
+            color: #ffffff;
             text-decoration: none;
         }
         a:hover {
@@ -79,7 +79,7 @@
         }
         #closePopup {
             background-color: #1A1A40;
-            color: #F4F4F9;
+            color: #ffffff;
             border: none;
             padding: 10px 20px;
             cursor: pointer;
@@ -136,7 +136,7 @@
             max-width: 100px;
             max-height: 100px;
             margin-right: 10px;
-            border: 1px solid #FF007A;
+            border: 1px solid #00FFFF;
             cursor: pointer;
         }
         /* Estilo para o fundo escurecido */
@@ -172,11 +172,20 @@
             position: absolute;
             top: 20px;
             right: 35px;
-            color: #fff;
+            color: #ffffff;
             font-size: 40px;
             font-weight: bold;
             cursor: pointer;
             z-index: 1001; /* Garantir que o botão "X" fique sempre acima da imagem */
+        }
+
+        /* Define o estilo para o placeholder rosa */
+        .placeholder-rosa::placeholder {
+            color:#ff007ba6;
+        }
+        /* Define a propriedade pointer-events como none para desativar interações do mouse */
+        .desativar-interacao {
+            pointer-events: none;
         }
     </style>
 </head>
@@ -317,14 +326,22 @@
                 // Limpa os valores dos campos
                 horizontalInput.value = '';
                 verticalInput.value = '';
+
+                // Adiciona a classe que define a cor rosa para o placeholder e desativar a interação do mouse
+                horizontalInput.classList.add('placeholder-rosa','desativar-interacao');
+                verticalInput.classList.add('placeholder-rosa','desativar-interacao');
             } else {
                 // Habilita os campos de input de largura e altura
                 horizontalInput.disabled = false;
                 verticalInput.disabled = false;
                 
-                // Altera o placeholder de volta para um valor padrão, se necessário
+                // Altera o placeholder de volta para um valor padrão
                 horizontalInput.placeholder = 'Digite um valor';
                 verticalInput.placeholder = 'Digite um valor';
+
+                // Remove a classe que define a cor rosa para o placeholder e reabilitar a interação do mouse
+                horizontalInput.classList.remove('placeholder-rosa','desativar-interacao');
+                verticalInput.classList.remove('placeholder-rosa','desativar-interacao');
 
                 // Atualiza os valores dos inputs com base no preset
                 const presetValues = preset.split('x');
@@ -383,6 +400,7 @@
             showProgressPopup(); // Mostra o pop-up de progresso
 
             Array.from(files).forEach((file, index) => {
+                const originalFileSize = file.size; // Tamanho do arquivo original em bytes
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const img = new Image();
@@ -423,6 +441,9 @@
                         // Cria um link para download da imagem
                         canvas.toBlob(blob => {
                             if (blob) {
+                                // Obtém o tamanho do novo arquivo
+                                const newFileSize = blob.size;
+
                                 // Atualiza o progresso individual e total
                                 imageProgress[index] = 100; // Assume que cada imagem atinge 100% após o processamento
                                 updateProgressBar();
@@ -430,7 +451,15 @@
                                 const downloadLink = document.createElement('a');
                                 downloadLink.href = URL.createObjectURL(blob);
                                 downloadLink.download = newFileName;
-                                downloadLink.textContent = `Baixar: ${newFileName}`;
+                                
+                                // Formatação dos tamanhos (de bytes para KB ou MB)
+                                const formatFileSize = (size) => {
+                                    if (size < 1024) return `${size} bytes`;
+                                    if (size < 1048576) return `${(size / 1024).toFixed(2)} KB`;
+                                    return `${(size / 1048576).toFixed(2)} MB`;
+                                };
+
+                                downloadLink.innerHTML = `<span style="color: #00FFFF;">Baixar:</span> <span style="color: white;">${newFileName}</span><br><span style="color: #00FFFF;">(Antes: ${formatFileSize(originalFileSize)}, Depois: ${formatFileSize(newFileSize)})</span>`;
 
                                 // Cria o contêiner da pré-visualização
                                 const previewContainer = document.createElement('div');
