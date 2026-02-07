@@ -253,6 +253,10 @@
         <button id="generateImages">Gerar Imagens</button>
         <button id="downloadAll">Baixar Todas as Imagens</button>
         <button id="downloadZip">Baixar Todas as Imagens em ZIP</button>
+        <label style="display:flex; align-items:center; gap:6px; color:#FF007A; cursor:pointer;">
+            <input type="checkbox" id="keepOriginalName">
+            Manter nome original
+        </label>
     </div>
 
     <div id="imagesContainer" class="section">
@@ -428,12 +432,18 @@
 
                     // Determina o novo nome do arquivo
                     const fileExtension = fileType === "original" ? file.name.split('.').pop() : fileType;
-                    let newFileName;  // Declare fora do bloco condicional
+                    const keepOriginalName = document.getElementById('keepOriginalName').checked;
 
-                    if (preset === 'original') {
-                        newFileName = `${file.name.split('.')[0]} (${img.width}x${img.height}).${fileExtension}`;
+                    let newFileName;
+
+                    if (keepOriginalName) {
+                        newFileName = file.name;
                     } else {
-                        newFileName = `${file.name.split('.')[0]} (${width}x${height}).${fileExtension}`;
+                        if (preset === 'original') {
+                            newFileName = `${file.name.split('.')[0]} (${img.width}x${img.height}).${fileExtension}`;
+                        } else {
+                            newFileName = `${file.name.split('.')[0]} (${width}x${height}).${fileExtension}`;
+                        }
                     }
 
                     fileNames.push(newFileName);
@@ -536,7 +546,10 @@
             const content = await zip.generateAsync({ type: 'blob' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(content);
-            a.download = `Imagens Redimensionadas (${width}x${height}) - APK World.zip`;
+            const keepOriginalName = document.getElementById('keepOriginalName').checked;
+            a.download = keepOriginalName
+                ? 'Imagens - Nomes Originais.zip'
+                : `Imagens Redimensionadas (${width}x${height}) - APK World.zip`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
