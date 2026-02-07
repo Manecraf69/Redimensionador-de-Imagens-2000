@@ -302,8 +302,12 @@
         let imageProgress = [];
 
         // Variáveis para controle do zoom
-        let zoomLevel = 0; // 0: sem zoom, 1: zoom nível 1, 2: zoom nível 2
         let modalImg = document.getElementById('modalImage');
+        let scale = 1;
+        const MIN_SCALE = 1;
+        const MAX_SCALE = 6;
+        const ZOOM_SPEED = 0.1;
+        let lastTouchDistance = null;
 
         let isDragging = false;
         let initialX, initialY;
@@ -670,10 +674,15 @@
 
         // Função para resetar o zoom ao fechar o modal ou ao clicar novamente na imagem
         function resetZoom() {
-            zoomLevel = 0;
-            modalImg.style.transform = "translate(-50%, -50%) scale(1)";
-            modalImg.style.left = "50%";  // Certifica-se de centralizar horizontalmente
-            modalImg.style.top = "50%";   // Certifica-se de centralizar verticalmente
+            scale = 1;
+            offsetX = 0;
+            offsetY = 0;
+            updateTransform();
+        }
+
+        function updateTransform() {
+            modalImg.style.transform =
+                `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) scale(${scale})`;
         }
 
         // Prevenir comportamento padrão de arraste da imagem
@@ -749,6 +758,47 @@
         });
         document.getElementById('vertical').addEventListener('input', function() {
             this.value = parseInt(this.value, 10) || '';
+        });
+
+        modalImg.addEventListener('wheel', function (e) {
+            e.preventDefault();
+
+            const delta = e.deltaY < 0 ? 1 : -1;
+            let newScale = scale + delta * ZOOM_SPEED;
+
+            newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+
+            if (newScale === scale) return;
+
+            scale = newScale;
+            updateTransform();
+        }, { passive: false });
+
+        modalImg.addEventListener('touchmove', function (e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (lastTouchDistance) {
+                    let zoomChange = (distance - lastTouchDistance) * 0.005;
+                    let newScale = scale + zoomChange;
+
+                    newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+                    scale = newScale;
+                    updateTransform();
+                }
+
+                lastTouchDistance = distance;
+            }
+        }, { passive: false });
+
+        modalImg.addEventListener('touchend', function () {
+            if (event.touches.length < 2) {
+                lastTouchDistance = null;
+            }
         });
     </script>
 </body>
