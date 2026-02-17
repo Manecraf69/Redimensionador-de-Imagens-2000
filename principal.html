@@ -435,18 +435,20 @@
                     }
 
                     // Determina o novo nome do arquivo
-                    const fileExtension = fileType === "original" ? file.name.split('.').pop() : fileType;
+                    const originalBaseName = file.name.replace(/\.[^/.]+$/, '');
+                    const originalExtension = (file.name.split('.').pop() || '').toLowerCase();
+                    const fileExtension = (fileType === "original" ? originalExtension : fileType).toLowerCase();
                     const keepOriginalName = document.getElementById('keepOriginalName').checked;
 
                     let newFileName;
 
                     if (keepOriginalName) {
-                        newFileName = file.name;
+                        newFileName = `${originalBaseName}.${fileExtension}`;
                     } else {
                         if (preset === 'original') {
-                            newFileName = `${file.name.split('.')[0]} (${img.width}x${img.height}).${fileExtension}`;
+                            newFileName = `${originalBaseName} (${img.width}x${img.height}).${fileExtension}`;
                         } else {
-                            newFileName = `${file.name.split('.')[0]} (${width}x${height}).${fileExtension}`;
+                            newFileName = `${originalBaseName} (${width}x${height}).${fileExtension}`;
                         }
                     }
 
