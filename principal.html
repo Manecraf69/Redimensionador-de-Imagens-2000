@@ -229,6 +229,13 @@
         <label for="vertical">Altura (px):</label>
         <input type="number" id="vertical" placeholder="Digite um valor">
 
+        <label for="resizeMode">Modo:</label>
+        <select id="resizeMode">
+            <option value="stretch" selected>Esticar imagem</option>
+            <option value="transparent">Adicionar fundo transparente</option>
+            <option value="blurred">Adicionar fundo embaçado</option>
+        </select>
+
         <label for="preset">Preset de tamanho:</label>
         <select id="preset">
             <option value="">Personalizado</option>
@@ -384,6 +391,7 @@
 
             const presetElement = document.getElementById('preset');
             const preset = presetElement.value;
+            const resizeMode = document.getElementById('resizeMode').value;
 
             if (preset !== 'original' && (!width || !height)) {
                 showPopup('A largura e a altura devem ser maiores que 0.');
@@ -430,8 +438,28 @@
                     // Desenha a imagem no canvas
                     if (preset === 'original') {
                         ctx.drawImage(img, 0, 0);
-                    } else {
+                    } else if (resizeMode === 'stretch') {
                         ctx.drawImage(img, 0, 0, width, height);
+                    } else {
+                        const scale = Math.min(width / img.width, height / img.height);
+                        const finalWidth = img.width * scale;
+                        const finalHeight = img.height * scale;
+                        const offsetX = (width - finalWidth) / 2;
+                        const offsetY = (height - finalHeight) / 2;
+
+                        if (resizeMode === 'blurred') {
+                            const bgScale = Math.max(width / img.width, height / img.height);
+                            const bgWidth = img.width * bgScale;
+                            const bgHeight = img.height * bgScale;
+                            const bgX = (width - bgWidth) / 2;
+                            const bgY = (height - bgHeight) / 2;
+
+                            ctx.filter = 'blur(24px)';
+                            ctx.drawImage(img, bgX, bgY, bgWidth, bgHeight);
+                            ctx.filter = 'none';
+                        }
+
+                        ctx.drawImage(img, offsetX, offsetY, finalWidth, finalHeight);
                     }
 
                     // Determina o novo nome do arquivo
