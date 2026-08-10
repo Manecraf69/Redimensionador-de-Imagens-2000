@@ -51,7 +51,7 @@
         button.secondary { color: var(--accent-2); }
         button.danger { color: #ff9aab; }
 
-        .app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+        .app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
 
         .topbar {
             display: flex;
@@ -85,12 +85,27 @@
         .tool span:first-child { font-size: 21px; line-height: 1; }
         .tool.active { background: rgba(255, 61, 145, .15); border-color: var(--accent); color: #ff8aba; }
         .divider { height: 1px; margin: 16px 0; background: var(--border); }
+        .left-settings .check { align-items: flex-start; }
+        .checker-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 9px 0 13px; }
+        .checker-swatch { width: 30px; height: 30px; flex: 0 0 auto; border: 2px solid var(--border); border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+        .checker-swatch.light { background-color: #e8e8ed; background-image: linear-gradient(45deg, #c9cad3 25%, transparent 25%, transparent 75%, #c9cad3 75%), linear-gradient(45deg, #c9cad3 25%, transparent 25%, transparent 75%, #c9cad3 75%); background-position: 0 0, 7px 7px; background-size: 14px 14px; }
+        .checker-swatch.dark { background-color: #242633; background-image: linear-gradient(45deg, #11131c 25%, transparent 25%, transparent 75%, #11131c 75%), linear-gradient(45deg, #11131c 25%, transparent 25%, transparent 75%, #11131c 75%); background-position: 0 0, 7px 7px; background-size: 14px 14px; }
+        .checker-switch { position: relative; width: 48px; height: 26px; flex: 0 0 auto; }
+        .checker-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+        .checker-switch-track { display: block; width: 48px; height: 26px; border: 1px solid var(--border); border-radius: 99px; background: var(--panel-2); cursor: pointer; transition: background .18s, border-color .18s; }
+        .checker-switch-track::after { content: ""; position: absolute; top: 4px; left: 4px; width: 16px; height: 16px; border-radius: 50%; background: #f4f5ff; transition: transform .18s, background .18s; }
+        .checker-switch input:checked + .checker-switch-track { border-color: var(--accent-2); background: rgba(0,220,232,.18); }
+        .checker-switch input:checked + .checker-switch-track::after { transform: translateX(22px); background: #11131c; }
+        .checker-switch input:focus-visible + .checker-switch-track { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 
         .control { margin: 13px 0; }
         .control-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
         .control-row label { color: var(--muted); }
         .value { min-width: 42px; color: var(--accent-2); text-align: right; font-variant-numeric: tabular-nums; }
         input[type="range"] { width: 100%; accent-color: var(--accent); }
+        .range-stepper { display: flex; align-items: center; gap: 6px; }
+        .range-stepper input[type="range"] { min-width: 0; }
+        .step-btn { width: 28px; min-width: 28px; min-height: 28px; padding: 0; border-radius: 7px; color: var(--accent-2); font-size: 18px; line-height: 1; }
         input[type="number"], select, input[type="color"] {
             width: 100%; height: 39px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2); color: var(--text);
         }
@@ -112,10 +127,6 @@
 
         .floating-info { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 7px; pointer-events: none; }
         .chip { padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: rgba(23,26,48,.9); color: var(--muted); font-size: 12px; }
-
-        .statusbar { display: flex; align-items: center; gap: 14px; min-height: 34px; padding: 5px 14px; border-top: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 12px; }
-        #statusText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .statusbar .spacer { flex: 1; }
 
         .section { display: none; }
         .section.visible { display: block; }
@@ -156,14 +167,15 @@
             .workspace { display: block; position: relative; }
             .sidebar.left { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 7; padding: 8px; overflow: visible; border: 1px solid var(--border); border-radius: 14px; background: rgba(23,26,48,.95); }
             .sidebar.left .panel-title, .sidebar.left .divider, .sidebar.left .hint { display: none; }
-            .tool-grid { grid-template-columns: repeat(5, 1fr); }
+            .left-settings { display: flex; align-items: center; gap: 10px; }
+            .left-settings .check { margin: 0; font-size: 10px; }
+            .left-settings .check input { flex: 0 0 auto; }
+            .tool-grid { grid-template-columns: repeat(4, 1fr); }
             .tool { min-height: 56px; padding: 5px 2px; font-size: 10px; }
             .tool span:first-child { font-size: 18px; }
             .stage-wrap { width: 100%; height: 100%; padding-bottom: 77px; }
             .sidebar.right { top: 60px; bottom: 34px; }
             .floating-info { bottom: 88px; }
-            .statusbar { gap: 7px; padding-inline: 8px; }
-            #imageInfo { display: none; }
         }
     </style>
 </head>
@@ -190,14 +202,27 @@
             <aside class="sidebar left">
                 <p class="panel-title">Ferramentas</p>
                 <div class="tool-grid">
-                    <button class="tool" data-tool="pan"><span>✥</span><span>Mover</span></button>
                     <button class="tool active" data-tool="crop"><span>⌗</span><span>Recortar</span></button>
                     <button class="tool" data-tool="erase"><span>◯</span><span>Apagar</span></button>
                     <button class="tool" data-tool="restore"><span>●</span><span>Restaurar</span></button>
                     <button class="tool" data-tool="magic"><span>✦</span><span>Mágica</span></button>
                 </div>
                 <div class="divider"></div>
-                <p class="hint">Roda do mouse: zoom<br>Espaço + arrastar: mover<br>Ctrl+Z: desfazer</p>
+                <div class="left-settings">
+                    <p class="panel-title">Histórico</p>
+                    <label class="check"><input id="scopedHistory" type="checkbox" checked> Desfazer só a ferramenta atual</label>
+                    <div class="divider"></div>
+                    <p class="panel-title">Visualização</p>
+                    <label class="check"><input id="pixelatedMode" type="checkbox"> Pixels nítidos (pixel art)</label>
+                    <div class="checker-switch-row" title="Alternar cor do quadriculado de transparência">
+                        <span class="checker-swatch light" aria-label="Quadriculado branco"></span>
+                        <label class="checker-switch" aria-label="Trocar quadriculado branco ou preto">
+                            <input id="darkChecker" type="checkbox">
+                            <span class="checker-switch-track"></span>
+                        </label>
+                        <span class="checker-swatch dark" aria-label="Quadriculado preto"></span>
+                    </div>
+                </div>
             </aside>
 
             <section id="stageWrap" class="stage-wrap">
@@ -244,52 +269,31 @@
                     <p id="brushTitle" class="panel-title">Borracha</p>
                     <div class="control">
                         <div class="control-row"><label for="brushSize">Tamanho</label><span id="brushSizeValue" class="value">40 px</span></div>
-                        <input id="brushSize" type="range" min="2" max="300" value="40">
+                        <div class="range-stepper"><button type="button" class="step-btn" data-target="brushSize" data-step="-1" aria-label="Diminuir tamanho">−</button><input id="brushSize" type="range" min="1" max="300" value="40"><button type="button" class="step-btn" data-target="brushSize" data-step="1" aria-label="Aumentar tamanho">＋</button></div>
                     </div>
                     <div class="control">
-                        <div class="control-row"><label for="brushHardness">Dureza</label><span id="brushHardnessValue" class="value">80%</span></div>
-                        <input id="brushHardness" type="range" min="0" max="100" value="80">
+                        <div class="control-row"><label for="brushHardness">Dureza</label><span id="brushHardnessValue" class="value">100%</span></div>
+                        <div class="range-stepper"><button type="button" class="step-btn" data-target="brushHardness" data-step="-1" aria-label="Diminuir dureza">−</button><input id="brushHardness" type="range" min="0" max="100" value="100"><button type="button" class="step-btn" data-target="brushHardness" data-step="1" aria-label="Aumentar dureza">＋</button></div>
                     </div>
-                    <p class="hint">Clique e arraste sobre a imagem. Use Restaurar para recuperar partes apagadas.</p>
+                    <p class="hint">Clique e arraste sobre a imagem ou encoste a bolinha na borda. Use Restaurar para recuperar partes apagadas.</p>
                 </div>
 
                 <div id="magicOptions" class="section">
                     <p class="panel-title">Caneta mágica</p>
                     <div class="control">
                         <div class="control-row"><label for="tolerance">Tolerância</label><span id="toleranceValue" class="value">24</span></div>
-                        <input id="tolerance" type="range" min="1" max="100" value="24">
+                        <div class="range-stepper"><button type="button" class="step-btn" data-target="tolerance" data-step="-1" aria-label="Diminuir tolerância">−</button><input id="tolerance" type="range" min="1" max="100" value="24"><button type="button" class="step-btn" data-target="tolerance" data-step="1" aria-label="Aumentar tolerância">＋</button></div>
                     </div>
                     <div class="control">
                         <div class="control-row"><label for="magicSoftness">Suavidade</label><span id="magicSoftnessValue" class="value">15%</span></div>
-                        <input id="magicSoftness" type="range" min="0" max="80" value="15">
+                        <div class="range-stepper"><button type="button" class="step-btn" data-target="magicSoftness" data-step="-1" aria-label="Diminuir suavidade">−</button><input id="magicSoftness" type="range" min="0" max="80" value="15"><button type="button" class="step-btn" data-target="magicSoftness" data-step="1" aria-label="Aumentar suavidade">＋</button></div>
                     </div>
                     <label class="check"><input id="contiguous" type="checkbox" checked> Somente pixels conectados</label>
                     <p class="hint">Clique em uma cor de fundo. A tolerância controla a quantidade de tons semelhantes removidos.</p>
                 </div>
 
-                <div id="panOptions" class="section">
-                    <p class="panel-title">Navegação</p>
-                    <button id="fitBtn" class="full">Ajustar imagem à tela</button>
-                    <div class="button-row" style="margin-top:8px">
-                        <button id="zoomOutBtn">− Afastar</button>
-                        <button id="zoomInBtn">＋ Aproximar</button>
-                    </div>
-                </div>
-
-                <div class="divider"></div>
-                <p class="panel-title">Máscara</p>
-                <div class="button-row">
-                    <button id="clearMaskBtn" class="danger" disabled>Remover tudo</button>
-                    <button id="restoreMaskBtn" disabled>Restaurar tudo</button>
-                </div>
             </aside>
         </div>
-
-        <footer class="statusbar">
-            <span id="statusText">Pronto para abrir uma imagem.</span>
-            <span class="spacer"></span>
-            <span id="imageInfo">—</span>
-        </footer>
     </main>
 
     <div id="exportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
@@ -306,7 +310,7 @@
             </div>
             <div id="qualityControl" class="control" style="display:none">
                 <div class="control-row"><label for="quality">Qualidade</label><span id="qualityValue" class="value">92%</span></div>
-                <input id="quality" type="range" min="10" max="100" value="92">
+                <div class="range-stepper"><button type="button" class="step-btn" data-target="quality" data-step="-1" aria-label="Diminuir qualidade">−</button><input id="quality" type="range" min="10" max="100" value="92"><button type="button" class="step-btn" data-target="quality" data-step="1" aria-label="Aumentar qualidade">＋</button></div>
             </div>
             <div id="backgroundControl" class="control" style="display:none">
                 <div class="control-row"><label for="backgroundColor">Cor do fundo</label></div>
@@ -316,7 +320,6 @@
                 <label>Largura final<input id="exportWidth" type="number" min="1" max="10000"></label>
                 <label>Altura final<input id="exportHeight" type="number" min="1" max="10000"></label>
             </div>
-            <label class="check"><input id="lockExportRatio" type="checkbox" checked> Manter proporção</label>
             <div class="dialog-actions">
                 <button id="cancelExportBtn">Cancelar</button>
                 <button id="downloadBtn" class="primary">Baixar imagem</button>
@@ -359,8 +362,9 @@
             action: null,
             lastPoint: null,
             cursorPoint: null,
-            history: [],
-            historyIndex: -1,
+            undoStack: [],
+            redoStack: [],
+            checkerDark: false,
             spaceDown: false,
             dpr: 1
         };
@@ -381,7 +385,7 @@
             $('busy').classList.toggle('show', active);
         }
 
-        function setStatus(message) { $('statusText').textContent = message; }
+        function setStatus(message) { /* O rodapé foi removido; mantém o fluxo interno sem texto visível. */ }
 
         function resizeCanvas() {
             const rect = stage.getBoundingClientRect();
@@ -395,8 +399,8 @@
             const tile = document.createElement('canvas');
             tile.width = tile.height = 24;
             const t = tile.getContext('2d');
-            t.fillStyle = '#e8e8ed'; t.fillRect(0, 0, 24, 24);
-            t.fillStyle = '#c9cad3'; t.fillRect(0, 0, 12, 12); t.fillRect(12, 12, 12, 12);
+            t.fillStyle = state.checkerDark ? '#242633' : '#e8e8ed'; t.fillRect(0, 0, 24, 24);
+            t.fillStyle = state.checkerDark ? '#11131c' : '#c9cad3'; t.fillRect(0, 0, 12, 12); t.fillRect(12, 12, 12, 12);
             return context.createPattern(tile, 'repeat');
         }
 
@@ -435,12 +439,30 @@
             const imageW = sourceCanvas.width * v.scale;
             const imageH = sourceCanvas.height * v.scale;
             ctx.save();
-            ctx.fillStyle = checkerPattern(ctx);
-            ctx.fillRect(v.x, v.y, imageW, imageH);
-            ctx.imageSmoothingEnabled = true;
+            if (state.tool === 'crop') {
+                ctx.fillStyle = checkerPattern(ctx);
+                ctx.fillRect(v.x, v.y, imageW, imageH);
+            } else {
+                const cropRect = cropScreenRect(v);
+                ctx.beginPath();
+                ctx.rect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+                ctx.clip();
+                ctx.fillStyle = checkerPattern(ctx);
+                ctx.fillRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+            }
+            ctx.imageSmoothingEnabled = !$('pixelatedMode').checked;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(composite, v.x, v.y, imageW, imageH);
             ctx.restore();
+
+            if (state.tool !== 'crop') {
+                const cropRect = cropScreenRect(v);
+                ctx.save();
+                ctx.strokeStyle = '#00dce8';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+                ctx.restore();
+            }
 
             if (state.tool === 'crop') drawCropOverlay(v, width, height);
             if ((state.tool === 'erase' || state.tool === 'restore') && state.cursorPoint) drawBrushCursor(v);
@@ -493,6 +515,7 @@
         }
 
         function drawBrushCursor(v) {
+            if (Number($('brushSize').value) <= 1) return;
             const p = imageToScreen(state.cursorPoint.x, state.cursorPoint.y, v);
             const radius = Number($('brushSize').value) * v.scale / 2;
             ctx.save();
@@ -507,7 +530,10 @@
         function screenToImage(x, y, v = viewTransform()) { return { x: (x - v.x) / v.scale, y: (y - v.y) / v.scale }; }
         function pointerPosition(event) { const r = canvas.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; }
         function insideImage(p) { return p.x >= 0 && p.y >= 0 && p.x < sourceCanvas.width && p.y < sourceCanvas.height; }
-
+        function insideCrop(p) {
+            const c = state.crop;
+            return insideImage(p) && p.x >= c.x && p.y >= c.y && p.x < c.x + c.w && p.y < c.y + c.h;
+        }
         async function loadFile(file) {
             if (!file || !file.type.startsWith('image/')) { showToast('Escolha um arquivo de imagem válido.'); return; }
             setBusy(true, 'Abrindo imagem…');
@@ -535,13 +561,12 @@
                 }
                 state.crop = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
                 state.loaded = true;
-                state.history = [];
-                state.historyIndex = -1;
+                state.undoStack = [];
+                state.redoStack = [];
                 rebuildComposite();
                 fitToScreen();
                 updateUI();
                 $('emptyState').style.display = 'none';
-                $('imageInfo').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
                 setStatus(`${file.name} aberta. Escolha uma ferramenta para começar.`);
                 canvas.focus();
             } catch (error) {
@@ -559,15 +584,31 @@
             render();
         }
 
+        function focusCrop() {
+            if (!state.loaded) return;
+            const width = canvas.width / state.dpr;
+            const height = canvas.height / state.dpr;
+            const padding = Math.min(70, Math.max(28, Math.min(width, height) * .08));
+            const targetScale = Math.min((width - padding * 2) / state.crop.w, (height - padding * 2) / state.crop.h);
+            state.zoom = clamp(targetScale / state.fitScale, .1, 20);
+            const scale = state.fitScale * state.zoom;
+            const cropCenterX = state.crop.x + state.crop.w / 2;
+            const cropCenterY = state.crop.y + state.crop.h / 2;
+            state.panX = -(cropCenterX - sourceCanvas.width / 2) * scale;
+            state.panY = -(cropCenterY - sourceCanvas.height / 2) * scale;
+            render();
+        }
+
         function selectTool(tool) {
             state.tool = tool;
             document.querySelectorAll('.tool').forEach(btn => btn.classList.toggle('active', btn.dataset.tool === tool));
             document.querySelectorAll('.section').forEach(section => section.classList.remove('visible'));
-            const target = tool === 'crop' ? 'cropOptions' : (tool === 'erase' || tool === 'restore') ? 'brushOptions' : tool === 'magic' ? 'magicOptions' : 'panOptions';
+            const target = tool === 'crop' ? 'cropOptions' : (tool === 'erase' || tool === 'restore') ? 'brushOptions' : 'magicOptions';
             $(target).classList.add('visible');
             if (tool === 'erase' || tool === 'restore') $('brushTitle').textContent = tool === 'erase' ? 'Borracha' : 'Restauração';
-            canvas.style.cursor = tool === 'pan' ? 'grab' : tool === 'magic' ? 'crosshair' : 'default';
-            setStatus({ crop: 'Arraste as bordas ou os cantos para definir o recorte.', erase: 'Arraste para apagar o fundo.', restore: 'Arraste para restaurar pixels.', magic: 'Clique em uma cor para remover tons semelhantes.', pan: 'Arraste para mover a imagem.' }[tool]);
+            canvas.style.cursor = tool === 'magic' ? 'crosshair' : 'default';
+            setStatus({ crop: 'Arraste as bordas ou os cantos para definir o recorte.', erase: 'Arraste para apagar o fundo dentro do recorte.', restore: 'Arraste para restaurar pixels dentro do recorte.', magic: 'Clique em uma cor dentro do recorte para remover tons semelhantes.' }[tool]);
+            updateHistoryButtons();
             render();
         }
 
@@ -637,10 +678,23 @@
             const radius = Number($('brushSize').value) / 2;
             const hardness = Number($('brushHardness').value) / 100;
             const data = state.mask.data;
-            const minX = Math.max(0, Math.floor(point.x - radius));
-            const maxX = Math.min(sourceCanvas.width - 1, Math.ceil(point.x + radius));
-            const minY = Math.max(0, Math.floor(point.y - radius));
-            const maxY = Math.min(sourceCanvas.height - 1, Math.ceil(point.y + radius));
+            const cropLeft = Math.ceil(state.crop.x);
+            const cropTop = Math.ceil(state.crop.y);
+            const cropRight = Math.floor(state.crop.x + state.crop.w - 1);
+            const cropBottom = Math.floor(state.crop.y + state.crop.h - 1);
+            const minX = Math.max(cropLeft, Math.floor(point.x - radius));
+            const maxX = Math.min(cropRight, Math.ceil(point.x + radius));
+            const minY = Math.max(cropTop, Math.floor(point.y - radius));
+            const maxY = Math.min(cropBottom, Math.ceil(point.y + radius));
+            if (radius <= .5) {
+                const pixelX = Math.floor(point.x);
+                const pixelY = Math.floor(point.y);
+                if (pixelX >= cropLeft && pixelX <= cropRight && pixelY >= cropTop && pixelY <= cropBottom) {
+                    const alphaIndex = (pixelY * sourceCanvas.width + pixelX) * 4 + 3;
+                    data[alphaIndex] = restoring ? 255 : 0;
+                }
+                return;
+            }
             const hardRadius = radius * hardness;
             for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
                 const distance = Math.hypot(x - point.x, y - point.y);
@@ -661,15 +715,22 @@
 
         function pushHistory(entry) {
             if (!entry) return;
-            if (state.historyIndex < state.history.length - 1) state.history.splice(state.historyIndex + 1);
-            state.history.push(entry);
-            state.historyIndex = state.history.length - 1;
-            const historyBytes = () => state.history.reduce((sum, item) => sum + (item.bytes || 64), 0);
-            while ((state.history.length > 20 || historyBytes() > 96 * 1024 * 1024) && state.history.length > 1) {
-                state.history.shift();
-                state.historyIndex--;
+            entry.scope = entry.scope || state.tool;
+            state.undoStack.push(entry);
+            state.redoStack = [];
+            const historyBytes = () => state.undoStack.reduce((sum, item) => sum + (item.bytes || 64), 0);
+            while ((state.undoStack.length > 20 || historyBytes() > 96 * 1024 * 1024) && state.undoStack.length > 1) {
+                state.undoStack.shift();
             }
             updateHistoryButtons();
+        }
+
+        function historyIndex(stack) {
+            if (!$('scopedHistory').checked) return stack.length - 1;
+            for (let index = stack.length - 1; index >= 0; index--) {
+                if (stack[index].scope === state.tool) return index;
+            }
+            return -1;
         }
 
         function snapshotAlpha() {
@@ -699,33 +760,41 @@
                 const values = direction === 'undo' ? entry.before : entry.after;
                 for (let i = 0; i < entry.indices.length; i++) state.mask.data[entry.indices[i] * 4 + 3] = values[i];
             } else state.crop = cropCopy(direction === 'undo' ? entry.before : entry.after);
-            rebuildComposite(); updateCropFields(); render();
+            rebuildComposite(); updateCropFields();
+            if (entry.type === 'crop' && state.tool === 'crop') focusCrop(); else render();
         }
 
         function undo() {
-            if (state.historyIndex < 0) return;
-            const entry = state.history[state.historyIndex--];
+            const index = historyIndex(state.undoStack);
+            if (index < 0) return;
+            const [entry] = state.undoStack.splice(index, 1);
+            state.redoStack.push(entry);
             applyHistory(entry, 'undo'); updateHistoryButtons(); setStatus(`Desfeito: ${entry.label}.`);
         }
 
         function redo() {
-            if (state.historyIndex >= state.history.length - 1) return;
-            const entry = state.history[++state.historyIndex];
+            const index = historyIndex(state.redoStack);
+            if (index < 0) return;
+            const [entry] = state.redoStack.splice(index, 1);
+            state.undoStack.push(entry);
             applyHistory(entry, 'redo'); updateHistoryButtons(); setStatus(`Refeito: ${entry.label}.`);
         }
 
         function updateHistoryButtons() {
-            $('undoBtn').disabled = state.historyIndex < 0;
-            $('redoBtn').disabled = state.historyIndex >= state.history.length - 1;
+            $('undoBtn').disabled = historyIndex(state.undoStack) < 0;
+            $('redoBtn').disabled = historyIndex(state.redoStack) < 0;
         }
 
         function magicRemove(start) {
-            if (!insideImage(start)) return;
+            if (!insideCrop(start)) return;
             setBusy(true, 'Selecionando pixels…');
             setTimeout(() => {
                 const before = snapshotAlpha();
                 const w = sourceCanvas.width, h = sourceCanvas.height;
                 const sx = Math.floor(start.x), sy = Math.floor(start.y);
+                const left = Math.ceil(state.crop.x), top = Math.ceil(state.crop.y);
+                const right = Math.floor(state.crop.x + state.crop.w - 1);
+                const bottom = Math.floor(state.crop.y + state.crop.h - 1);
                 const pixels = state.sourcePixels.data;
                 const sampleIndex = (sy * w + sx) * 4;
                 const sr = pixels[sampleIndex], sg = pixels[sampleIndex + 1], sb = pixels[sampleIndex + 2];
@@ -746,7 +815,7 @@
                 };
 
                 if ($('contiguous').checked) {
-                    const queue = new Uint32Array(w * h);
+                    const queue = new Uint32Array(Math.max(1, (right - left + 1) * (bottom - top + 1)));
                     let head = 0, tail = 0;
                     queue[tail++] = sy * w + sx;
                     visited[sy * w + sx] = 1;
@@ -757,13 +826,15 @@
                         removeAt(index, distance);
                         const x = index % w;
                         const add = next => { if (!visited[next]) { visited[next] = 1; queue[tail++] = next; } };
-                        if (x > 0) add(index - 1);
-                        if (x < w - 1) add(index + 1);
-                        if (index >= w) add(index - w);
-                        if (index < w * (h - 1)) add(index + w);
+                        const y = Math.floor(index / w);
+                        if (x > left) add(index - 1);
+                        if (x < right) add(index + 1);
+                        if (y > top) add(index - w);
+                        if (y < bottom) add(index + w);
                     }
                 } else {
-                    for (let index = 0; index < w * h; index++) {
+                    for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
+                        const index = y * w + x;
                         const distance = matches(index);
                         if (distance <= threshold) removeAt(index, distance);
                     }
@@ -780,12 +851,12 @@
             state.pointerDown = true; state.pointerId = event.pointerId;
             const screen = pointerPosition(event);
             const point = screenToImage(screen.x, screen.y);
-            if (state.spaceDown || state.tool === 'pan') {
+            if (state.spaceDown) {
                 state.action = { type: 'pan', screen, panX: state.panX, panY: state.panY };
                 canvas.style.cursor = 'grabbing'; return;
             }
             if (state.tool === 'crop') startCrop(screen, point);
-            else if ((state.tool === 'erase' || state.tool === 'restore') && insideImage(point)) {
+            else if (state.tool === 'erase' || state.tool === 'restore') {
                 state.action = { type: 'brush', before: snapshotAlpha() };
                 state.lastPoint = point;
                 applyBrush(point, state.tool === 'restore'); rebuildComposite(); render();
@@ -796,7 +867,7 @@
             if (!state.loaded) return;
             const screen = pointerPosition(event);
             const point = screenToImage(screen.x, screen.y);
-            state.cursorPoint = insideImage(point) ? point : null;
+            state.cursorPoint = (state.tool === 'erase' || state.tool === 'restore') ? point : null;
             if (!state.pointerDown || event.pointerId !== state.pointerId) { render(); return; }
             if (!state.action) return;
             if (state.action.type === 'pan') {
@@ -805,8 +876,7 @@
                 render();
             } else if (state.action.type === 'crop') moveCrop(point);
             else if (state.action.type === 'brush') {
-                const clipped = { x: clamp(point.x, 0, sourceCanvas.width - 1), y: clamp(point.y, 0, sourceCanvas.height - 1) };
-                brushLine(state.lastPoint, clipped, state.tool === 'restore'); state.lastPoint = clipped;
+                brushLine(state.lastPoint, point, state.tool === 'restore'); state.lastPoint = point;
             }
         }
 
@@ -816,9 +886,10 @@
             if (state.action?.type === 'crop') {
                 const before = state.action.original, after = cropCopy(state.crop);
                 if (Math.abs(before.x - after.x) + Math.abs(before.y - after.y) + Math.abs(before.w - after.w) + Math.abs(before.h - after.h) > 1) pushHistory({ type: 'crop', before, after, label: 'recorte' });
+                focusCrop();
             }
             state.pointerDown = false; state.pointerId = null; state.action = null; state.lastPoint = null;
-            canvas.style.cursor = state.tool === 'pan' ? 'grab' : state.tool === 'magic' ? 'crosshair' : 'default';
+            canvas.style.cursor = state.tool === 'magic' ? 'crosshair' : 'default';
         }
 
         function zoomAt(screen, factor) {
@@ -837,7 +908,7 @@
         }
 
         function updateUI() {
-            ['exportBtn', 'clearMaskBtn', 'restoreMaskBtn'].forEach(id => $(id).disabled = !state.loaded);
+            $('exportBtn').disabled = !state.loaded;
             updateCropFields(); updateHistoryButtons(); render();
         }
 
@@ -853,14 +924,7 @@
                 state.crop = { x: (sourceCanvas.width - w) / 2, y: (sourceCanvas.height - h) / 2, w, h };
             }
             pushHistory({ type: 'crop', before, after: cropCopy(state.crop), label: 'recorte' });
-            updateCropFields(); render();
-        }
-
-        function replaceMask(alpha, label) {
-            if (!state.loaded) return;
-            const before = snapshotAlpha();
-            for (let i = 3; i < state.mask.data.length; i += 4) state.mask.data[i] = alpha;
-            pushHistory(createMaskEntry(before, label)); rebuildComposite(); render();
+            updateCropFields(); focusCrop();
         }
 
         function openExport() {
@@ -876,17 +940,23 @@
             setBusy(true, 'Gerando arquivo…');
             const out = document.createElement('canvas'); out.width = outW; out.height = outH;
             const outCtx = out.getContext('2d');
+            outCtx.imageSmoothingEnabled = !$('pixelatedMode').checked;
+            outCtx.imageSmoothingQuality = 'high';
             const format = $('formatSelect').value;
             const c = state.crop;
             const tempMask = document.createElement('canvas'); tempMask.width = outW; tempMask.height = outH;
-            const tempCtx = tempMask.getContext('2d'); tempCtx.drawImage(maskCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
+            const tempCtx = tempMask.getContext('2d');
+            tempCtx.imageSmoothingEnabled = !$('pixelatedMode').checked;
+            tempCtx.drawImage(maskCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
             if (format !== 'image/jpeg') {
                 outCtx.drawImage(sourceCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
                 outCtx.globalCompositeOperation = 'destination-in'; outCtx.drawImage(tempMask, 0, 0); outCtx.globalCompositeOperation = 'source-over';
             } else {
                 outCtx.fillStyle = $('backgroundColor').value; outCtx.fillRect(0, 0, outW, outH);
                 const cut = document.createElement('canvas'); cut.width = outW; cut.height = outH;
-                const cutCtx = cut.getContext('2d'); cutCtx.drawImage(sourceCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
+                const cutCtx = cut.getContext('2d');
+                cutCtx.imageSmoothingEnabled = !$('pixelatedMode').checked;
+                cutCtx.drawImage(sourceCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
                 cutCtx.globalCompositeOperation = 'destination-in'; cutCtx.drawImage(tempMask, 0, 0);
                 outCtx.drawImage(cut, 0, 0);
             }
@@ -904,23 +974,31 @@
         $('fileInput').addEventListener('change', event => { loadFile(event.target.files[0]); event.target.value = ''; });
         document.querySelectorAll('.tool').forEach(button => button.addEventListener('click', () => selectTool(button.dataset.tool)));
         $('undoBtn').addEventListener('click', undo); $('redoBtn').addEventListener('click', redo);
-        $('fitBtn').addEventListener('click', fitToScreen);
-        $('zoomInBtn').addEventListener('click', () => zoomAt({ x: canvas.width / state.dpr / 2, y: canvas.height / state.dpr / 2 }, 1.2));
-        $('zoomOutBtn').addEventListener('click', () => zoomAt({ x: canvas.width / state.dpr / 2, y: canvas.height / state.dpr / 2 }, 1 / 1.2));
         $('resetCropBtn').addEventListener('click', () => resetCrop(false));
         $('centerCropBtn').addEventListener('click', () => resetCrop(true));
         $('aspectSelect').addEventListener('change', () => { if (state.loaded && $('aspectSelect').value !== 'free') resetCrop(true); });
-        $('clearMaskBtn').addEventListener('click', () => replaceMask(0, 'remover tudo'));
-        $('restoreMaskBtn').addEventListener('click', () => replaceMask(255, 'restaurar tudo'));
         $('exportBtn').addEventListener('click', openExport);
         $('cancelExportBtn').addEventListener('click', () => $('exportModal').classList.remove('open'));
         $('downloadBtn').addEventListener('click', exportImage);
         $('settingsToggle').addEventListener('click', () => $('optionsPanel').classList.toggle('open'));
+        $('scopedHistory').addEventListener('change', () => {
+            updateHistoryButtons();
+            setStatus($('scopedHistory').checked ? 'Histórico limitado à ferramenta atual.' : 'Histórico global ativado.');
+        });
+        $('pixelatedMode').addEventListener('change', render);
+        $('darkChecker').addEventListener('change', () => { state.checkerDark = $('darkChecker').checked; render(); });
         $('exportModal').addEventListener('click', event => { if (event.target === $('exportModal')) $('exportModal').classList.remove('open'); });
 
         [['brushSize', 'brushSizeValue', v => `${v} px`], ['brushHardness', 'brushHardnessValue', v => `${v}%`], ['tolerance', 'toleranceValue', v => v], ['magicSoftness', 'magicSoftnessValue', v => `${v}%`], ['quality', 'qualityValue', v => `${v}%`]].forEach(([input, output, format]) => {
             $(input).addEventListener('input', () => { $(output).textContent = format($(input).value); render(); });
         });
+
+        document.querySelectorAll('.step-btn').forEach(button => button.addEventListener('click', () => {
+            const input = $(button.dataset.target);
+            const step = Number(button.dataset.step) || 1;
+            input.value = clamp(Number(input.value) + step, Number(input.min), Number(input.max));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }));
 
         $('formatSelect').addEventListener('change', () => {
             const format = $('formatSelect').value;
@@ -928,18 +1006,25 @@
             $('backgroundControl').style.display = format === 'image/jpeg' ? 'block' : 'none';
         });
 
-        let exportRatio = 1;
-        $('exportWidth').addEventListener('focus', () => { exportRatio = state.crop.w / state.crop.h; });
-        $('exportHeight').addEventListener('focus', () => { exportRatio = state.crop.w / state.crop.h; });
-        $('exportWidth').addEventListener('input', () => { if ($('lockExportRatio').checked) $('exportHeight').value = Math.max(1, Math.round(Number($('exportWidth').value) / exportRatio)); });
-        $('exportHeight').addEventListener('input', () => { if ($('lockExportRatio').checked) $('exportWidth').value = Math.max(1, Math.round(Number($('exportHeight').value) * exportRatio)); });
-
         canvas.addEventListener('pointerdown', onPointerDown);
         canvas.addEventListener('pointermove', onPointerMove);
         canvas.addEventListener('pointerup', onPointerUp);
         canvas.addEventListener('pointercancel', onPointerUp);
         canvas.addEventListener('pointerleave', () => { if (!state.pointerDown) { state.cursorPoint = null; render(); } });
-        canvas.addEventListener('wheel', event => { event.preventDefault(); zoomAt(pointerPosition(event), event.deltaY < 0 ? 1.12 : 1 / 1.12); }, { passive: false });
+        canvas.addEventListener('wheel', event => {
+            event.preventDefault();
+            if (event.shiftKey && (state.tool === 'erase' || state.tool === 'restore')) {
+                const input = $('brushSize');
+                const direction = event.deltaY < 0 ? 1 : -1;
+                const step = Math.max(2, Math.round(Number(input.value) * .08));
+                input.value = clamp(Number(input.value) + direction * step, Number(input.min), Number(input.max));
+                $('brushSizeValue').textContent = `${input.value} px`;
+                setStatus(`Tamanho da ferramenta: ${input.value} px.`);
+                render();
+                return;
+            }
+            zoomAt(pointerPosition(event), event.deltaY < 0 ? 1.12 : 1 / 1.12);
+        }, { passive: false });
 
         window.addEventListener('keydown', event => {
             if (event.target.matches('input, select')) return;
@@ -948,7 +1033,7 @@
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redo(); }
             if (event.key === 'Escape') $('exportModal').classList.remove('open');
         });
-        window.addEventListener('keyup', event => { if (event.code === 'Space') { state.spaceDown = false; canvas.style.cursor = state.tool === 'pan' ? 'grab' : 'default'; } });
+        window.addEventListener('keyup', event => { if (event.code === 'Space') { state.spaceDown = false; canvas.style.cursor = state.tool === 'magic' ? 'crosshair' : 'default'; } });
 
         ['dragenter', 'dragover'].forEach(type => stage.addEventListener(type, event => { event.preventDefault(); stage.classList.add('drop-active'); }));
         ['dragleave', 'drop'].forEach(type => stage.addEventListener(type, event => { event.preventDefault(); stage.classList.remove('drop-active'); }));
