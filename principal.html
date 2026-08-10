@@ -26,6 +26,24 @@
             font-size: 16px;
             cursor: pointer;
         }
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+
+        .dimension-input {
+            width: 205px;
+            min-width: 205px;
+            box-sizing: border-box;
+        }
+        .checkbox-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: #FF007A;
+            cursor: pointer;
+            white-space: nowrap;
+        }
 
         #imagesContainer {
             margin-top: 20px;
@@ -46,9 +64,12 @@
         }
         /* Deixa a página mais organizada para telas com menos de 600px de largura */
         @media (max-width: 600px) {
-            input, button, select {
-                width: 100%;
+            input:not([type="checkbox"]), button, select {
+                width: calc(100% - 20px);
                 box-sizing: border-box;
+            }
+            input[type="checkbox"] {
+                width: auto;
             }
         }
 
@@ -76,6 +97,7 @@
         }
         #popupMessage {
             margin-bottom: 20px;
+            white-space: pre-line;
         }
         #closePopup {
             background-color: #1A1A40;
@@ -177,6 +199,23 @@
             font-weight: bold;
             cursor: pointer;
             z-index: 1001; /* Garantir que o botão "X" fique sempre acima da imagem */
+            background: transparent;
+            margin: 0;
+            padding: 0 8px;
+            width: auto;
+        }
+
+        .closeModal:focus-visible,
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        .image-preview img:focus-visible {
+            outline: 3px solid #00FFFF;
+            outline-offset: 3px;
+        }
+
+        #generatedImagesList:empty {
+            display: none;
         }
 
         /* Define o estilo para o placeholder rosa */
@@ -202,11 +241,10 @@
             <option value="png">PNG</option>
             <option value="jpeg">JPEG</option>
             <option value="webp">WebP</option>
-            <option value="custom">Personalizado</option>
         </select>
     
-        <label for="jpegQuality" id="jpegQualityLabel" style="display: none;">Qualidade:</label>
-        <select id="jpegQuality" style="display: none;">
+        <label for="imageQuality" id="imageQualityLabel" style="display: none;">Qualidade:</label>
+        <select id="imageQuality" style="display: none;">
             <option value="1.0">100%</option>
             <option value="0.9">90%</option>
             <option value="0.8">80%</option>
@@ -218,16 +256,19 @@
             <option value="0.2">20%</option>
             <option value="0.1">10%</option>
         </select>
-
-        <input type="text" id="customFileType" placeholder="Digite o tipo de arquivo" style="display: none;">
     </div>    
 
     <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
         <label for="horizontal">Largura (px):</label>
-        <input type="number" id="horizontal" placeholder="Digite um valor">
+        <input type="text" id="horizontal" class="dimension-input" maxlength="4" inputmode="numeric" pattern="[0-9]{1,4}" placeholder="Digite um valor">
 
         <label for="vertical">Altura (px):</label>
-        <input type="number" id="vertical" placeholder="Digite um valor">
+        <input type="text" id="vertical" class="dimension-input" maxlength="4" inputmode="numeric" pattern="[0-9]{1,4}" placeholder="Digite um valor">
+
+        <label class="checkbox-option">
+            <input type="checkbox" id="keepOriginalSize">
+            Manter tamanho original
+        </label>
     </div>
 
     <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
@@ -241,7 +282,6 @@
         <label for="preset">Preset de tamanho:</label>
         <select id="preset">
             <option value="">Personalizado</option>
-            <option value="original">Manter proporção original</option>
             <option value="1920x1080">Imagem Full HD (1920x1080)</option>
             <option value="3840x2160">Imagem 4K (3840x2160)</option>
             <option value="1080x1080">Instagram - Quadrado (1080x1080)</option>
@@ -260,8 +300,8 @@
 
     <div class="section" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
         <button id="generateImages">Gerar Imagens</button>
-        <button id="downloadAll">Baixar Todas as Imagens</button>
-        <button id="downloadZip">Baixar Todas as Imagens em ZIP</button>
+        <button id="downloadAll" disabled>Baixar Todas as Imagens</button>
+        <button id="downloadZip" disabled>Baixar Todas as Imagens em ZIP</button>
         <label style="display:flex; align-items:center; gap:6px; color:#FF007A; cursor:pointer;">
             <input type="checkbox" id="keepOriginalName">
             Manter nome original
@@ -271,40 +311,49 @@
     <div id="imagesContainer" class="section">
         <h2>Lista de imagens geradas:</h2>
         <p id="noImagesMessage">Nenhuma imagem gerada ainda</p>
+        <div id="generatedImagesList"></div>
     </div>
 
-    <div id="popup" style="display: none;">
-        <div id="popupContent">
+    <div id="popup" role="dialog" aria-modal="true" aria-labelledby="popupMessage" style="display: none;">
+        <div id="popupContent" tabindex="-1">
             <p id="popupMessage">Nenhuma imagem gerada ainda!</p>
             <button id="closePopup">Fechar</button>
         </div>
     </div>
     
-    <div id="progressPopup" style="display: none;">
-        <div id="progressContent">
+    <div id="progressPopup" role="dialog" aria-modal="true" aria-labelledby="progressMessage" aria-live="polite" style="display: none;">
+        <div id="progressContent" tabindex="-1">
             <p id="progressMessage">Gerando imagens...</p>
-            <div id="progressBar">
+            <div id="progressBar" role="progressbar" aria-label="Progresso da geração" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <div id="progressBarFill"></div>
             </div>
         </div>
     </div>
 
     <!-- Modal para visualização de imagem -->
-    <div id="imageModal">
-        <span class="closeModal">&times;</span>
-        <img id="modalImage">
+    <div id="imageModal" role="dialog" aria-modal="true" aria-label="Visualização ampliada da imagem">
+        <button type="button" class="closeModal" aria-label="Fechar visualização">&times;</button>
+        <img id="modalImage" alt="Pré-visualização ampliada">
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
-        const imagesContainer = document.getElementById('imagesContainer');
+        const generatedImagesList = document.getElementById('generatedImagesList');
         const noImagesMessage = document.getElementById('noImagesMessage');
         const downloadAllButton = document.getElementById('downloadAll');
         const generateImagesButton = document.getElementById('generateImages');
         const downloadZipButton = document.getElementById('downloadZip');
-        let downloadLinks = [];
-        let fileNames = [];
-        let imageBlobs = [];
+        const FORMAT_CONFIG = {
+            png: { mime: 'image/png', extension: 'png' },
+            jpeg: { mime: 'image/jpeg', extension: 'jpg' },
+            webp: { mime: 'image/webp', extension: 'webp' }
+        };
+        const MIME_FORMATS = { 'image/png': 'png', 'image/jpeg': 'jpeg', 'image/webp': 'webp' };
+        const objectUrls = new Set();
+        let generatedImages = [];
+        let generationId = 0;
+        let lastGenerationDescription = 'Imagens Redimensionadas';
+        let previouslyFocusedElement = null;
 
         let totalImages = 0;
         let processedImages = 0;
@@ -322,56 +371,47 @@
         let initialX, initialY;
         let offsetX = 0, offsetY = 0;
 
-        // Preset de Tamanho de Imagem
-        document.getElementById('preset').addEventListener('change', function() {
-            const preset = this.value;
+        const horizontalInput = document.getElementById('horizontal');
+        const verticalInput = document.getElementById('vertical');
+        const keepOriginalSizeInput = document.getElementById('keepOriginalSize');
 
-            // Obtém os elementos de input de largura e altura
-            const horizontalInput = document.getElementById('horizontal');
-            const verticalInput = document.getElementById('vertical');
+        function updateOriginalSizeState() {
+            const keepOriginalSize = keepOriginalSizeInput.checked;
+            horizontalInput.disabled = keepOriginalSize;
+            verticalInput.disabled = keepOriginalSize;
+            horizontalInput.placeholder = keepOriginalSize ? 'Original' : 'Digite um valor';
+            verticalInput.placeholder = keepOriginalSize ? 'Original' : 'Digite um valor';
+            horizontalInput.classList.toggle('placeholder-rosa', keepOriginalSize);
+            verticalInput.classList.toggle('placeholder-rosa', keepOriginalSize);
+            horizontalInput.classList.toggle('desativar-interacao', keepOriginalSize);
+            verticalInput.classList.toggle('desativar-interacao', keepOriginalSize);
 
-            // Verifica se o preset é "original"
-            if (preset === 'original') {
-                // Desativa os campos de input de largura e altura
-                horizontalInput.disabled = true;
-                verticalInput.disabled = true;
-                
-                // Altera o placeholder para "Original"
-                horizontalInput.placeholder = 'Original';
-                verticalInput.placeholder = 'Original';
-                
-                // Limpa os valores dos campos
+            if (keepOriginalSize) {
                 horizontalInput.value = '';
                 verticalInput.value = '';
+                document.getElementById('preset').value = '';
+            }
+        }
 
-                // Adiciona a classe que define a cor rosa para o placeholder e desativar a interação do mouse
-                horizontalInput.classList.add('placeholder-rosa','desativar-interacao');
-                verticalInput.classList.add('placeholder-rosa','desativar-interacao');
-            } else {
-                // Habilita os campos de input de largura e altura
-                horizontalInput.disabled = false;
-                verticalInput.disabled = false;
-                
-                // Altera o placeholder de volta para um valor padrão
-                horizontalInput.placeholder = 'Digite um valor';
-                verticalInput.placeholder = 'Digite um valor';
+        keepOriginalSizeInput.addEventListener('change', updateOriginalSizeState);
 
-                // Remove a classe que define a cor rosa para o placeholder e reabilitar a interação do mouse
-                horizontalInput.classList.remove('placeholder-rosa','desativar-interacao');
-                verticalInput.classList.remove('placeholder-rosa','desativar-interacao');
+        // Preset de Tamanho de Imagem
+        document.getElementById('preset').addEventListener('change', function() {
+            keepOriginalSizeInput.checked = false;
+            updateOriginalSizeState();
 
-                // Atualiza os valores dos inputs com base no preset
-                const presetValues = preset.split('x');
-                if (presetValues.length === 2) {
-                    horizontalInput.value = presetValues[0];
-                    verticalInput.value = presetValues[1];
-                }
+            const presetValues = this.value.split('x');
+            if (presetValues.length === 2) {
+                horizontalInput.value = presetValues[0];
+                verticalInput.value = presetValues[1];
             }
         });
 
         // Gera Imagens ao Clicar no Botão
         generateImagesButton.addEventListener('click', function() {
             document.getElementById('progressBarFill').style.width = '0%'; // Zera a barra de progresso
+            document.getElementById('progressBar').setAttribute('aria-valuenow', '0');
+            document.getElementById('progressMessage').textContent = 'Gerando imagens...';
 
             if (document.getElementById('imageInput').files.length === 0) {
                 showPopup('Selecione ao menos uma imagem para gerar.');
@@ -379,57 +419,99 @@
             }
 
             const files = document.getElementById('imageInput').files;
-            imagesContainer.innerHTML = '';
-            noImagesMessage.style.display = 'none';
-            downloadLinks = [];
-            fileNames = [];
-            imageBlobs = [];
-            totalImages = files.length;
-            processedImages = 0;
-            imageProgress = new Array(totalImages).fill(0);
 
-            const width = Math.min(parseInt(document.getElementById('horizontal').value), 5000);
-            const height = Math.min(parseInt(document.getElementById('vertical').value), 5000);
+            const width = Number(document.getElementById('horizontal').value);
+            const height = Number(document.getElementById('vertical').value);
 
-            const presetElement = document.getElementById('preset');
-            const preset = presetElement.value;
             const resizeMode = document.getElementById('resizeMode').value;
+            const keepOriginalSize = keepOriginalSizeInput.checked;
+            const keepOriginalName = document.getElementById('keepOriginalName').checked;
+            const imageQuality = Number(document.getElementById('imageQuality').value);
 
-            if (preset !== 'original' && (!width || !height)) {
-                showPopup('A largura e a altura devem ser maiores que 0.');
+            if (!keepOriginalSize && (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width > 5000 || height > 5000)) {
+                showPopup('A largura e a altura devem ser números inteiros entre 1 e 5000.');
                 return;
             }
 
-            // Usar o tipo de arquivo personalizado na geração de imagens
-            const fileTypeElement = document.getElementById('fileType');
-            let fileType = fileTypeElement.value;
+            const fileType = document.getElementById('fileType').value;
 
-            if (fileType === 'custom') {
-                const customFileType = document.getElementById('customFileType').value.trim().replace(/^\.+/, '');
-                
-                if (!customFileType) {
-                    showPopup('Por favor, especifique um tipo de arquivo antes de continuar.');
-                    return; // Interrompe o processo até que o tipo de arquivo seja especificado
-                }
-
-                fileType = customFileType; // Define o tipo de arquivo como o valor inserido pelo usuário
-            }
+            releaseObjectUrls();
+            generatedImagesList.replaceChildren();
+            noImagesMessage.style.display = 'none';
+            generatedImages = new Array(files.length);
+            totalImages = files.length;
+            processedImages = 0;
+            imageProgress = new Array(totalImages).fill(0);
+            const currentGenerationId = ++generationId;
+            const processingMessages = [];
+            const usedFileNames = new Set();
+            const resultSlots = Array.from({ length: totalImages }, () => document.createElement('div'));
+            generatedImagesList.append(...resultSlots);
+            lastGenerationDescription = keepOriginalSize
+                ? 'Imagens em Tamanho Original'
+                : `Imagens Redimensionadas (${width}x${height})`;
 
             showProgressPopup(); // Mostra o pop-up de progresso
+            generateImagesButton.disabled = true;
+            downloadAllButton.disabled = true;
+            downloadZipButton.disabled = true;
+
+            const finishImage = (index, message = '') => {
+                if (currentGenerationId !== generationId || imageProgress[index] === 100) return;
+
+                if (message) processingMessages.push(message);
+                imageProgress[index] = 100;
+                processedImages++;
+                updateProgressBar();
+
+                if (processedImages === totalImages) {
+                    const hasGeneratedImages = generatedImages.some(Boolean);
+                    generateImagesButton.disabled = false;
+                    downloadAllButton.disabled = !hasGeneratedImages;
+                    downloadZipButton.disabled = !hasGeneratedImages;
+                    closeProgressPopup();
+                    noImagesMessage.style.display = hasGeneratedImages ? 'none' : 'block';
+
+                    if (processingMessages.length > 0) {
+                        showPopup(processingMessages.join('\n'));
+                    }
+                }
+            };
 
             Array.from(files).forEach((file, index) => {
                 const originalFileSize = file.size; // Tamanho do arquivo original em bytes
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.src = e.target.result;
+                const img = new Image();
+                const sourceUrl = URL.createObjectURL(file);
+                img.onerror = function() {
+                    URL.revokeObjectURL(sourceUrl);
+                    finishImage(index, `O arquivo "${file.name}" não é uma imagem válida ou suportada.`);
+                };
 
-                    img.onload = function() {
+                img.onload = function() {
+                    URL.revokeObjectURL(sourceUrl);
+                    if (currentGenerationId !== generationId) return;
+
+                    try {
+
+                    if (keepOriginalSize && (img.width > 5000 || img.height > 5000)) {
+                        finishImage(index, `"${file.name}" ultrapassa o limite de 5000 px.`);
+                        return;
+                    }
+
+                    let outputFormat = fileType;
+                    if (fileType === 'original') {
+                        outputFormat = MIME_FORMATS[file.type.toLowerCase()] || 'png';
+                        if (!MIME_FORMATS[file.type.toLowerCase()]) {
+                            processingMessages.push(`"${file.name}" foi convertido para PNG porque seu formato original não pode ser exportado pelo navegador.`);
+                        }
+                    }
+                    const format = FORMAT_CONFIG[outputFormat];
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
+                    if (!ctx) throw new Error('Canvas 2D indisponível.');
 
                     // Configura o tamanho do canvas
-                    if (preset === 'original') {
+                    if (keepOriginalSize) {
                         canvas.width = img.width;
                         canvas.height = img.height;
                     } else {
@@ -437,8 +519,13 @@
                         canvas.height = height;
                     }
 
+                    if (format.mime === 'image/jpeg') {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+
                     // Desenha a imagem no canvas
-                    if (preset === 'original') {
+                    if (keepOriginalSize) {
                         ctx.drawImage(img, 0, 0);
                     } else if (resizeMode === 'stretch') {
                         ctx.drawImage(img, 0, 0, width, height);
@@ -466,36 +553,33 @@
 
                     // Determina o novo nome do arquivo
                     const originalBaseName = file.name.replace(/\.[^/.]+$/, '');
-                    const originalExtension = (file.name.split('.').pop() || '').toLowerCase();
-                    const fileExtension = (fileType === "original" ? originalExtension : fileType).toLowerCase();
-                    const keepOriginalName = document.getElementById('keepOriginalName').checked;
-
+                    const fileExtension = format.extension;
                     let newFileName;
 
                     if (keepOriginalName) {
                         newFileName = `${originalBaseName}.${fileExtension}`;
                     } else {
-                        if (preset === 'original') {
+                        if (keepOriginalSize) {
                             newFileName = `${originalBaseName} (${img.width}x${img.height}).${fileExtension}`;
                         } else {
                             newFileName = `${originalBaseName} (${width}x${height}).${fileExtension}`;
                         }
                     }
-
-                    fileNames.push(newFileName);
+                    newFileName = createUniqueFileName(newFileName, usedFileNames);
 
                         // Cria um link para download da imagem
                         canvas.toBlob(blob => {
-                            if (blob) {
+                            if (currentGenerationId !== generationId) return;
+
+                            if (blob && blob.type === format.mime) {
                                 // Obtém o tamanho do novo arquivo
                                 const newFileSize = blob.size;
 
                                 // Atualiza o progresso individual e total
-                                imageProgress[index] = 100; // Assume que cada imagem atinge 100% após o processamento
-                                updateProgressBar();
-
                                 const downloadLink = document.createElement('a');
-                                downloadLink.href = URL.createObjectURL(blob);
+                                const objectUrl = URL.createObjectURL(blob);
+                                objectUrls.add(objectUrl);
+                                downloadLink.href = objectUrl;
                                 downloadLink.download = newFileName;
                                 
                                 // Formatação dos tamanhos (de bytes para KB ou MB)
@@ -505,7 +589,16 @@
                                     return `${(size / 1048576).toFixed(2)} MB`;
                                 };
 
-                                downloadLink.innerHTML = `<span style="color: #00FFFF;">Baixar:</span> <span style="color: white;">${newFileName}</span><br><span style="color: #00FFFF;">(Antes: ${formatFileSize(originalFileSize)}, Depois: ${formatFileSize(newFileSize)})</span>`;
+                                const downloadLabel = document.createElement('span');
+                                downloadLabel.style.color = '#00FFFF';
+                                downloadLabel.textContent = 'Baixar: ';
+                                const fileNameLabel = document.createElement('span');
+                                fileNameLabel.style.color = 'white';
+                                fileNameLabel.textContent = newFileName;
+                                const sizeLabel = document.createElement('span');
+                                sizeLabel.style.color = '#00FFFF';
+                                sizeLabel.textContent = `(Antes: ${formatFileSize(originalFileSize)}, Depois: ${formatFileSize(newFileSize)})`;
+                                downloadLink.append(downloadLabel, fileNameLabel, document.createElement('br'), sizeLabel);
 
                                 // Cria o contêiner da pré-visualização
                                 const previewContainer = document.createElement('div');
@@ -513,9 +606,17 @@
                                 
                                 // Adiciona a pré-visualização da imagem
                                 const previewImage = document.createElement('img');
-                                previewImage.src = URL.createObjectURL(blob);
+                                previewImage.src = objectUrl;
+                                previewImage.alt = `Pré-visualização de ${newFileName}`;
+                                previewImage.tabIndex = 0;
                                 previewImage.addEventListener('click', function() {
                                     openImageModal(previewImage.src);
+                                });
+                                previewImage.addEventListener('keydown', function(event) {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        openImageModal(previewImage.src);
+                                    }
                                 });
                                 previewContainer.appendChild(previewImage);
 
@@ -523,42 +624,35 @@
                                 previewContainer.appendChild(downloadLink);
 
                                 // Adiciona o contêiner ao DOM
-                                imagesContainer.appendChild(previewContainer);
-                                imagesContainer.appendChild(document.createElement('br'));
+                                resultSlots[index].replaceChildren(previewContainer);
 
-                                downloadLinks.push(downloadLink.href);
-                                imageBlobs.push({ name: newFileName, blob });
-                                
-                                // Incrementa o contador de imagens processadas
-                                processedImages++;
-
-                                // Verifica se todas as imagens foram processadas
-                                if (processedImages === totalImages) {
-                                    closeProgressPopup(); // Fecha o pop-up de progresso
-                                }
+                                generatedImages[index] = { name: newFileName, blob, url: objectUrl };
+                                finishImage(index);
+                            } else {
+                                finishImage(index, `Não foi possível converter "${file.name}" para ${format.extension.toUpperCase()}.`);
                             }
-                        }, `image/${fileExtension}`, fileType === "jpeg" ? parseFloat(document.getElementById('jpegQuality').value) : 1.0);
-                    };
+                        }, format.mime, ['jpeg', 'webp'].includes(outputFormat) ? imageQuality : undefined);
+                    } catch (error) {
+                        console.error(error);
+                        finishImage(index, `Ocorreu um erro ao processar "${file.name}".`);
+                    }
                 };
-                reader.readAsDataURL(file);
+                img.src = sourceUrl;
             });
-
-            if (fileNames.length === 0) {
-                noImagesMessage.style.display = 'block';
-            }
         });
 
         // Baixar Todas as Imagens
         downloadAllButton.addEventListener('click', function() {
-            if (downloadLinks.length === 0) {
+            const availableImages = generatedImages.filter(Boolean);
+            if (availableImages.length === 0) {
                 showPopup('Nenhuma imagem foi gerada para baixar.');
                 return;
             }
 
-            downloadLinks.forEach((link, index) => {
+            availableImages.forEach(({ url, name }) => {
                 const a = document.createElement('a');
-                a.href = link;
-                a.download = fileNames[index];
+                a.href = url;
+                a.download = name;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -567,111 +661,136 @@
 
         // Baixar Todas as Imagens em ZIP
         downloadZipButton.addEventListener('click', async function() {
-            if (downloadLinks.length === 0) {
+            const availableImages = generatedImages.filter(Boolean);
+            if (availableImages.length === 0) {
                 showPopup('Nenhuma imagem foi gerada para baixar em ZIP.');
                 return;
             }
 
-            const zip = new JSZip();
-            const width = Math.min(parseInt(document.getElementById('horizontal').value), 3840);
-            const height = Math.min(parseInt(document.getElementById('vertical').value), 2160);
+            if (typeof JSZip === 'undefined') {
+                showPopup('Não foi possível carregar o gerador de ZIP. Verifique sua conexão e tente novamente.');
+                return;
+            }
 
-            imageBlobs.forEach(({ name, blob }) => {
-                zip.file(name, blob);
-            });
-            const content = await zip.generateAsync({ type: 'blob' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(content);
-            const keepOriginalName = document.getElementById('keepOriginalName').checked;
-            a.download = keepOriginalName
-                ? 'Imagens - Nomes Originais.zip'
-                : `Imagens Redimensionadas (${width}x${height}) - APK World.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        });
-
-        // Mostrar ou esconder o campo de texto dependendo da seleção
-        document.getElementById('fileType').addEventListener('change', function() {
-            const customFileTypeInput = document.getElementById('customFileType');
-            const jpegQualityLabel = document.getElementById('jpegQualityLabel');
-            const jpegQualitySelect = document.getElementById('jpegQuality');
-
-            if (this.value === 'custom') {
-                customFileTypeInput.style.display = 'inline';
-                jpegQualityLabel.style.display = 'none';
-                jpegQualitySelect.style.display = 'none';
-            } else {
-                customFileTypeInput.style.display = 'none';
-                if (this.value === 'jpeg') {
-                    jpegQualityLabel.style.display = 'inline';
-                    jpegQualitySelect.style.display = 'inline';
-                } else {
-                    jpegQualityLabel.style.display = 'none';
-                    jpegQualitySelect.style.display = 'none';
-                }
+            downloadZipButton.disabled = true;
+            try {
+                const zip = new JSZip();
+                availableImages.forEach(({ name, blob }) => zip.file(name, blob));
+                const content = await zip.generateAsync({ type: 'blob' });
+                const zipUrl = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = zipUrl;
+                a.download = `${lastGenerationDescription}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(zipUrl), 1000);
+            } catch (error) {
+                console.error(error);
+                showPopup('Não foi possível criar o arquivo ZIP.');
+            } finally {
+                downloadZipButton.disabled = false;
             }
         });
+
+        // Mostrar ou esconder o controle de qualidade do JPEG e WebP
+        document.getElementById('fileType').addEventListener('change', function() {
+            const imageQualityLabel = document.getElementById('imageQualityLabel');
+            const imageQualitySelect = document.getElementById('imageQuality');
+            const showQuality = ['jpeg', 'webp'].includes(this.value);
+            imageQualityLabel.style.display = showQuality ? 'inline' : 'none';
+            imageQualitySelect.style.display = showQuality ? 'inline' : 'none';
+        });
+
+        function createUniqueFileName(fileName, usedNames) {
+            if (!usedNames.has(fileName.toLowerCase())) {
+                usedNames.add(fileName.toLowerCase());
+                return fileName;
+            }
+
+            const dotIndex = fileName.lastIndexOf('.');
+            const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+            const extension = dotIndex > 0 ? fileName.slice(dotIndex) : '';
+            let suffix = 2;
+            let candidate;
+
+            do {
+                candidate = `${baseName} (${suffix++})${extension}`;
+            } while (usedNames.has(candidate.toLowerCase()));
+
+            usedNames.add(candidate.toLowerCase());
+            return candidate;
+        }
+
+        function releaseObjectUrls() {
+            objectUrls.forEach(url => URL.revokeObjectURL(url));
+            objectUrls.clear();
+        }
 
         // Função para mostrar o pop-up de caso de exceção
         function showPopup(message) {
             const popup = document.getElementById('popup');
             const popupMessage = document.getElementById('popupMessage');
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement !== document.body && activeElement.offsetParent !== null) {
+                previouslyFocusedElement = activeElement;
+            }
             popupMessage.textContent = message;
             popup.style.display = 'flex';
+            document.getElementById('closePopup').focus();
         }
 
         // Função para fechar o pop-up de caso de exceção
         document.getElementById('closePopup').addEventListener('click', function() {
             document.getElementById('popup').style.display = 'none';
+            previouslyFocusedElement?.focus();
         });
 
         // Função para mostrar o pop-up de progresso
         function showProgressPopup() {
+            previouslyFocusedElement = document.activeElement;
             document.getElementById('progressPopup').style.display = 'flex';
+            document.getElementById('progressContent').focus();
         }
 
         // Função para atualizar a barra de progresso
         function updateProgressBar() {
             const totalProgress = imageProgress.reduce((sum, progress) => sum + progress, 0) / totalImages;
             document.getElementById('progressBarFill').style.width = `${totalProgress}%`;
-            
-            // Fechar pop-up se todas as imagens estiverem processadas
-            if (processedImages === totalImages) {
-                closeProgressPopup();
-            }
+            const progressBar = document.getElementById('progressBar');
+            progressBar.setAttribute('aria-valuenow', Math.round(totalProgress));
+            document.getElementById('progressMessage').textContent = `Gerando imagens... ${processedImages} de ${totalImages}`;
         }
 
         // Função para fechar o pop-up de progresso
         function closeProgressPopup() {
             document.getElementById('progressPopup').style.display = 'none';
+            previouslyFocusedElement?.focus();
         }
 
         // Função para abrir o modal com a imagem em tamanho maior
         function openImageModal(src) {
             const modal = document.getElementById('imageModal');
+            previouslyFocusedElement = document.activeElement;
+            resetZoom();
             modalImg.src = src;
             modal.style.display = "block";
+            document.querySelector('.closeModal').focus();
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+            resetZoom();
+            previouslyFocusedElement?.focus();
         }
 
         // Fechar o modal ao clicar no "X"
-        document.querySelector('.closeModal').addEventListener('click', function() {
-            document.getElementById('imageModal').style.display = "none";
-            resetZoom();
-            modalImg.style.transform = 'scale(1) translate(-50%, -50%)';
-            zoomLevel = 0;
-            modalImg.style.marginLeft = '0px';
-            modalImg.style.marginTop = '0px';
-        });
+        document.querySelector('.closeModal').addEventListener('click', closeImageModal);
 
         // Fechar o modal ao clicar fora da imagem
         document.getElementById('imageModal').addEventListener('click', function(event) {
             if (event.target === document.getElementById('imageModal')) {
-                document.getElementById('imageModal').style.display = "none";
-                resetZoom();
-                zoomLevel = 0;
-                modalImg.style.marginLeft = '0px';
-                modalImg.style.marginTop = '0px';
+                closeImageModal();
             }
         });
 
@@ -679,18 +798,16 @@
         function applyZoom(e) {
             e.preventDefault();
 
-            if (zoomLevel === 0) {
-                zoomLevel = 1;
-                modalImg.style.transform = 'translate(-50%, -50%) scale(1.5)';
-            } else if (zoomLevel === 1) {
-                zoomLevel = 2;
-                modalImg.style.transform = 'translate(-50%, -50%) scale(2)';
+            if (scale === 1) {
+                scale = 1.5;
+            } else if (scale === 1.5) {
+                scale = 2;
             } else {
-                zoomLevel = 0;
-                modalImg.style.transform = 'translate(-50%, -50%) scale(1)';
-                modalImg.style.marginLeft = '0px';
-                modalImg.style.marginTop = '0px';
+                scale = 1;
+                offsetX = 0;
+                offsetY = 0;
             }
+            updateTransform();
         }
         // Detectar o duplo toque em dispositivos móveis
         let lastTouchEnd = 0;
@@ -709,6 +826,8 @@
             scale = 1;
             offsetX = 0;
             offsetY = 0;
+            modalImg.style.marginLeft = '0px';
+            modalImg.style.marginTop = '0px';
             updateTransform();
         }
 
@@ -728,6 +847,10 @@
 
         // Função para iniciar o movimento (mouse e toque)
         function startDrag(e) {
+            if (e.touches && e.touches.length !== 1) {
+                isDragging = false;
+                return;
+            }
             e.preventDefault();
             isDragging = true;
             initialX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
@@ -744,9 +867,9 @@
                 const deltaX = currentX - initialX;
                 const deltaY = currentY - initialY;
 
-                // Atualiza as margens da imagem com base no movimento
-                modalImg.style.marginLeft = `${parseInt(modalImg.style.marginLeft || 0) + deltaX}px`;
-                modalImg.style.marginTop = `${parseInt(modalImg.style.marginTop || 0) + deltaY}px`;
+                offsetX += deltaX;
+                offsetY += deltaY;
+                updateTransform();
 
                 // Atualiza as posições iniciais para o próximo movimento
                 initialX = currentX;
@@ -776,21 +899,16 @@
             modalImg.style.cursor = 'grab';
         });
 
-        // Modificação para atualizar o preset para "Personalizado" quando o valor for alterado manualmente
-        document.getElementById('horizontal').addEventListener('input', function() {
-            document.getElementById('preset').value = "";
-        });
-        document.getElementById('vertical').addEventListener('input', function() {
-            document.getElementById('preset').value = "";
-        });
+        function handleDimensionInput() {
+            this.value = this.value
+                .replace(/\D/g, '')
+                .slice(0, 4)
+                .replace(/^0+(?=\d)/, '');
+            document.getElementById('preset').value = '';
+        }
 
-        // Para remover os zeros à esquerda quando o usuário inserir um valor
-        document.getElementById('horizontal').addEventListener('input', function() {
-            this.value = parseInt(this.value, 10) || '';
-        });
-        document.getElementById('vertical').addEventListener('input', function() {
-            this.value = parseInt(this.value, 10) || '';
-        });
+        horizontalInput.addEventListener('input', handleDimensionInput);
+        verticalInput.addEventListener('input', handleDimensionInput);
 
         modalImg.addEventListener('wheel', function (e) {
             e.preventDefault();
@@ -827,11 +945,24 @@
             }
         }, { passive: false });
 
-        modalImg.addEventListener('touchend', function () {
+        modalImg.addEventListener('touchend', function (event) {
             if (event.touches.length < 2) {
                 lastTouchDistance = null;
             }
         });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key !== 'Escape') return;
+
+            if (document.getElementById('imageModal').style.display === 'block') {
+                closeImageModal();
+            } else if (document.getElementById('popup').style.display === 'flex') {
+                document.getElementById('popup').style.display = 'none';
+                previouslyFocusedElement?.focus();
+            }
+        });
+
+        window.addEventListener('beforeunload', releaseObjectUrls);
     </script>
 </body>
 </html>
