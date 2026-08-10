@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Editor de Recorte e Fundo</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0d1020;
+            --panel: #171a30;
+            --panel-2: #202440;
+            --border: #343958;
+            --text: #f4f5ff;
+            --muted: #a7acc9;
+            --accent: #ff3d91;
+            --accent-2: #00dce8;
+            --danger: #ff657a;
+            --shadow: 0 18px 50px rgba(0, 0, 0, .28);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        button, input, select { font: inherit; }
+
+        button {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--panel-2);
+            color: var(--text);
+            min-height: 40px;
+            padding: 8px 13px;
+            cursor: pointer;
+            transition: border-color .15s, background .15s, transform .15s, opacity .15s;
+        }
+
+        button:hover:not(:disabled) { border-color: var(--accent-2); }
+        button:active:not(:disabled) { transform: translateY(1px); }
+        button:disabled { cursor: not-allowed; opacity: .42; }
+        button.primary { border-color: transparent; background: var(--accent); color: white; font-weight: 700; }
+        button.secondary { color: var(--accent-2); }
+        button.danger { color: #ff9aab; }
+
+        .app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 66px;
+            padding: 10px 16px;
+            background: rgba(23, 26, 48, .96);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 5px 20px rgba(0,0,0,.16);
+            z-index: 5;
+        }
+
+        .brand { display: flex; align-items: center; gap: 11px; min-width: 250px; }
+        .brand-mark { width: 38px; height: 38px; border: 2px solid var(--accent); border-radius: 11px; position: relative; }
+        .brand-mark::after { content: ""; position: absolute; inset: 8px -5px -5px 8px; border: 2px solid var(--accent-2); border-radius: 8px; }
+        .brand strong { display: block; font-size: 15px; }
+        .brand small { color: var(--muted); }
+        .top-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .file-button input { display: none; }
+        .file-button { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px; border-radius: 10px; background: var(--accent); font-weight: 700; cursor: pointer; }
+
+        .workspace { min-height: 0; display: grid; grid-template-columns: 258px minmax(0, 1fr) 282px; }
+        .sidebar { min-height: 0; overflow-y: auto; padding: 15px; background: var(--panel); }
+        .sidebar.left { border-right: 1px solid var(--border); }
+        .sidebar.right { border-left: 1px solid var(--border); }
+
+        .panel-title { margin: 2px 0 10px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .tool { min-height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+        .tool span:first-child { font-size: 21px; line-height: 1; }
+        .tool.active { background: rgba(255, 61, 145, .15); border-color: var(--accent); color: #ff8aba; }
+        .divider { height: 1px; margin: 16px 0; background: var(--border); }
+
+        .control { margin: 13px 0; }
+        .control-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+        .control-row label { color: var(--muted); }
+        .value { min-width: 42px; color: var(--accent-2); text-align: right; font-variant-numeric: tabular-nums; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
+        input[type="number"], select, input[type="color"] {
+            width: 100%; height: 39px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-2); color: var(--text);
+        }
+        input[type="color"] { padding: 4px; }
+        .check { display: flex; align-items: center; gap: 9px; margin: 11px 0; color: var(--muted); cursor: pointer; }
+        .check input { width: 17px; height: 17px; accent-color: var(--accent); }
+        .hint { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
+        .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .full { width: 100%; }
+
+        .stage-wrap { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #0a0c17; }
+        #editorCanvas { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+        .empty-state { position: absolute; inset: 0; display: grid; place-items: center; padding: 25px; pointer-events: none; }
+        .empty-card { max-width: 430px; padding: 34px; text-align: center; border: 1px dashed #4b5279; border-radius: 20px; background: rgba(23,26,48,.72); box-shadow: var(--shadow); }
+        .empty-icon { font-size: 42px; }
+        .empty-card h2 { margin: 12px 0 7px; }
+        .empty-card p { margin: 0; color: var(--muted); }
+        .drop-active .empty-card { border-color: var(--accent-2); background: rgba(0,220,232,.08); }
+
+        .floating-info { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 7px; pointer-events: none; }
+        .chip { padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: rgba(23,26,48,.9); color: var(--muted); font-size: 12px; }
+
+        .statusbar { display: flex; align-items: center; gap: 14px; min-height: 34px; padding: 5px 14px; border-top: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 12px; }
+        #statusText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .statusbar .spacer { flex: 1; }
+
+        .section { display: none; }
+        .section.visible { display: block; }
+        .dimensions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .dimensions label { color: var(--muted); font-size: 12px; }
+        .dimensions input { margin-top: 5px; }
+
+        .modal { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; padding: 18px; background: rgba(4,5,12,.78); backdrop-filter: blur(5px); }
+        .modal.open { display: grid; }
+        .dialog { width: min(460px, 100%); max-height: 90vh; overflow: auto; padding: 22px; border: 1px solid var(--border); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow); }
+        .dialog h2 { margin: 0 0 5px; }
+        .dialog > p { margin: 0 0 17px; color: var(--muted); }
+        .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 19px; }
+
+        .toast { position: fixed; left: 50%; bottom: 48px; z-index: 30; max-width: calc(100% - 30px); padding: 10px 15px; border: 1px solid var(--border); border-radius: 10px; background: #242946; box-shadow: var(--shadow); opacity: 0; transform: translate(-50%, 15px); pointer-events: none; transition: .2s; }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+        .busy { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(4,5,12,.68); }
+        .busy.show { display: grid; }
+        .spinner { width: 42px; height: 42px; margin: 0 auto 13px; border: 4px solid #383e60; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 900px) {
+            .brand { min-width: auto; }
+            .brand small { display: none; }
+            .workspace { grid-template-columns: 215px minmax(0, 1fr); }
+            .sidebar.right { position: fixed; right: 0; top: 66px; bottom: 34px; z-index: 8; width: min(300px, 88vw); transform: translateX(100%); transition: transform .2s; box-shadow: var(--shadow); }
+            .sidebar.right.open { transform: translateX(0); }
+            #settingsToggle { display: inline-flex !important; }
+        }
+
+        @media (max-width: 650px) {
+            .topbar { min-height: 60px; padding: 8px; gap: 6px; }
+            .brand strong { font-size: 13px; }
+            .brand-mark { width: 31px; height: 31px; }
+            .top-actions button { padding: 7px 9px; }
+            .top-actions .button-text { display: none; }
+            .workspace { display: block; position: relative; }
+            .sidebar.left { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 7; padding: 8px; overflow: visible; border: 1px solid var(--border); border-radius: 14px; background: rgba(23,26,48,.95); }
+            .sidebar.left .panel-title, .sidebar.left .divider, .sidebar.left .hint { display: none; }
+            .tool-grid { grid-template-columns: repeat(5, 1fr); }
+            .tool { min-height: 56px; padding: 5px 2px; font-size: 10px; }
+            .tool span:first-child { font-size: 18px; }
+            .stage-wrap { width: 100%; height: 100%; padding-bottom: 77px; }
+            .sidebar.right { top: 60px; bottom: 34px; }
+            .floating-info { bottom: 88px; }
+            .statusbar { gap: 7px; padding-inline: 8px; }
+            #imageInfo { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <main class="app">
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand-mark" aria-hidden="true"></span>
+                <div><strong>Recorte & Fundo</strong><small>Editor local de transparência</small></div>
+            </div>
+            <div class="top-actions">
+                <label class="file-button" title="Abrir uma imagem">
+                    <input id="fileInput" type="file" accept="image/*">
+                    <span>＋ <span class="button-text">Abrir imagem</span></span>
+                </label>
+                <button id="undoBtn" disabled title="Desfazer (Ctrl+Z)">↶ <span class="button-text">Desfazer</span></button>
+                <button id="redoBtn" disabled title="Refazer (Ctrl+Y)">↷ <span class="button-text">Refazer</span></button>
+                <button id="settingsToggle" style="display:none" title="Opções da ferramenta">☰</button>
+                <button id="exportBtn" class="primary" disabled>Exportar</button>
+            </div>
+        </header>
+
+        <div class="workspace">
+            <aside class="sidebar left">
+                <p class="panel-title">Ferramentas</p>
+                <div class="tool-grid">
+                    <button class="tool" data-tool="pan"><span>✥</span><span>Mover</span></button>
+                    <button class="tool active" data-tool="crop"><span>⌗</span><span>Recortar</span></button>
+                    <button class="tool" data-tool="erase"><span>◯</span><span>Apagar</span></button>
+                    <button class="tool" data-tool="restore"><span>●</span><span>Restaurar</span></button>
+                    <button class="tool" data-tool="magic"><span>✦</span><span>Mágica</span></button>
+                </div>
+                <div class="divider"></div>
+                <p class="hint">Roda do mouse: zoom<br>Espaço + arrastar: mover<br>Ctrl+Z: desfazer</p>
+            </aside>
+
+            <section id="stageWrap" class="stage-wrap">
+                <canvas id="editorCanvas" tabindex="0" aria-label="Área de edição da imagem"></canvas>
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-card">
+                        <div class="empty-icon">▧</div>
+                        <h2>Abra ou arraste uma imagem</h2>
+                        <p>Recorte a área desejada e remova o fundo manualmente. Nada é enviado para a internet.</p>
+                    </div>
+                </div>
+                <div class="floating-info">
+                    <span id="zoomChip" class="chip">100%</span>
+                    <span id="cropChip" class="chip">Sem imagem</span>
+                </div>
+            </section>
+
+            <aside id="optionsPanel" class="sidebar right">
+                <div id="cropOptions" class="section visible">
+                    <p class="panel-title">Recorte</p>
+                    <div class="control">
+                        <div class="control-row"><label for="aspectSelect">Proporção</label></div>
+                        <select id="aspectSelect">
+                            <option value="free">Livre</option>
+                            <option value="1">Quadrado (1:1)</option>
+                            <option value="1.333333">Paisagem (4:3)</option>
+                            <option value="1.777778">Paisagem (16:9)</option>
+                            <option value="0.8">Retrato (4:5)</option>
+                            <option value="0.5625">Stories (9:16)</option>
+                        </select>
+                    </div>
+                    <div class="dimensions">
+                        <label>Largura<input id="cropWidth" type="number" min="1" disabled></label>
+                        <label>Altura<input id="cropHeight" type="number" min="1" disabled></label>
+                    </div>
+                    <p class="hint">Arraste as bordas, os cantos ou o interior da moldura.</p>
+                    <div class="button-row" style="margin-top:13px">
+                        <button id="resetCropBtn">Imagem inteira</button>
+                        <button id="centerCropBtn">Centralizar</button>
+                    </div>
+                </div>
+
+                <div id="brushOptions" class="section">
+                    <p id="brushTitle" class="panel-title">Borracha</p>
+                    <div class="control">
+                        <div class="control-row"><label for="brushSize">Tamanho</label><span id="brushSizeValue" class="value">40 px</span></div>
+                        <input id="brushSize" type="range" min="2" max="300" value="40">
+                    </div>
+                    <div class="control">
+                        <div class="control-row"><label for="brushHardness">Dureza</label><span id="brushHardnessValue" class="value">80%</span></div>
+                        <input id="brushHardness" type="range" min="0" max="100" value="80">
+                    </div>
+                    <p class="hint">Clique e arraste sobre a imagem. Use Restaurar para recuperar partes apagadas.</p>
+                </div>
+
+                <div id="magicOptions" class="section">
+                    <p class="panel-title">Caneta mágica</p>
+                    <div class="control">
+                        <div class="control-row"><label for="tolerance">Tolerância</label><span id="toleranceValue" class="value">24</span></div>
+                        <input id="tolerance" type="range" min="1" max="100" value="24">
+                    </div>
+                    <div class="control">
+                        <div class="control-row"><label for="magicSoftness">Suavidade</label><span id="magicSoftnessValue" class="value">15%</span></div>
+                        <input id="magicSoftness" type="range" min="0" max="80" value="15">
+                    </div>
+                    <label class="check"><input id="contiguous" type="checkbox" checked> Somente pixels conectados</label>
+                    <p class="hint">Clique em uma cor de fundo. A tolerância controla a quantidade de tons semelhantes removidos.</p>
+                </div>
+
+                <div id="panOptions" class="section">
+                    <p class="panel-title">Navegação</p>
+                    <button id="fitBtn" class="full">Ajustar imagem à tela</button>
+                    <div class="button-row" style="margin-top:8px">
+                        <button id="zoomOutBtn">− Afastar</button>
+                        <button id="zoomInBtn">＋ Aproximar</button>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+                <p class="panel-title">Máscara</p>
+                <div class="button-row">
+                    <button id="clearMaskBtn" class="danger" disabled>Remover tudo</button>
+                    <button id="restoreMaskBtn" disabled>Restaurar tudo</button>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="statusbar">
+            <span id="statusText">Pronto para abrir uma imagem.</span>
+            <span class="spacer"></span>
+            <span id="imageInfo">—</span>
+        </footer>
+    </main>
+
+    <div id="exportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+        <div class="dialog">
+            <h2 id="exportTitle">Exportar imagem</h2>
+            <p>O arquivo será gerado somente no seu navegador.</p>
+            <div class="control">
+                <div class="control-row"><label for="formatSelect">Formato</label></div>
+                <select id="formatSelect">
+                    <option value="image/png">PNG transparente</option>
+                    <option value="image/webp">WebP transparente</option>
+                    <option value="image/jpeg">JPEG com fundo</option>
+                </select>
+            </div>
+            <div id="qualityControl" class="control" style="display:none">
+                <div class="control-row"><label for="quality">Qualidade</label><span id="qualityValue" class="value">92%</span></div>
+                <input id="quality" type="range" min="10" max="100" value="92">
+            </div>
+            <div id="backgroundControl" class="control" style="display:none">
+                <div class="control-row"><label for="backgroundColor">Cor do fundo</label></div>
+                <input id="backgroundColor" type="color" value="#ffffff">
+            </div>
+            <div class="dimensions">
+                <label>Largura final<input id="exportWidth" type="number" min="1" max="10000"></label>
+                <label>Altura final<input id="exportHeight" type="number" min="1" max="10000"></label>
+            </div>
+            <label class="check"><input id="lockExportRatio" type="checkbox" checked> Manter proporção</label>
+            <div class="dialog-actions">
+                <button id="cancelExportBtn">Cancelar</button>
+                <button id="downloadBtn" class="primary">Baixar imagem</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="busy" class="busy"><div><div class="spinner"></div><span id="busyText">Processando…</span></div></div>
+    <div id="toast" class="toast" role="status"></div>
+
+    <script>
+    (() => {
+        'use strict';
+
+        const $ = id => document.getElementById(id);
+        const canvas = $('editorCanvas');
+        const ctx = canvas.getContext('2d');
+        const stage = $('stageWrap');
+        const composite = document.createElement('canvas');
+        const compositeCtx = composite.getContext('2d', { willReadFrequently: true });
+        const sourceCanvas = document.createElement('canvas');
+        const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+        const maskCanvas = document.createElement('canvas');
+        const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+
+        const state = {
+            loaded: false,
+            fileName: 'imagem',
+            image: null,
+            sourcePixels: null,
+            mask: null,
+            tool: 'crop',
+            crop: { x: 0, y: 0, w: 1, h: 1 },
+            zoom: 1,
+            fitScale: 1,
+            panX: 0,
+            panY: 0,
+            pointerDown: false,
+            pointerId: null,
+            action: null,
+            lastPoint: null,
+            cursorPoint: null,
+            history: [],
+            historyIndex: -1,
+            spaceDown: false,
+            dpr: 1
+        };
+
+        const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+        const cropCopy = crop => ({ x: crop.x, y: crop.y, w: crop.w, h: crop.h });
+
+        function showToast(message) {
+            const toast = $('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => toast.classList.remove('show'), 2300);
+        }
+
+        function setBusy(active, message = 'Processando…') {
+            $('busyText').textContent = message;
+            $('busy').classList.toggle('show', active);
+        }
+
+        function setStatus(message) { $('statusText').textContent = message; }
+
+        function resizeCanvas() {
+            const rect = stage.getBoundingClientRect();
+            state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.max(1, Math.round(rect.width * state.dpr));
+            canvas.height = Math.max(1, Math.round(rect.height * state.dpr));
+            render();
+        }
+
+        function checkerPattern(context) {
+            const tile = document.createElement('canvas');
+            tile.width = tile.height = 24;
+            const t = tile.getContext('2d');
+            t.fillStyle = '#e8e8ed'; t.fillRect(0, 0, 24, 24);
+            t.fillStyle = '#c9cad3'; t.fillRect(0, 0, 12, 12); t.fillRect(12, 12, 12, 12);
+            return context.createPattern(tile, 'repeat');
+        }
+
+        function rebuildComposite() {
+            if (!state.loaded) return;
+            compositeCtx.clearRect(0, 0, composite.width, composite.height);
+            compositeCtx.globalCompositeOperation = 'source-over';
+            compositeCtx.drawImage(sourceCanvas, 0, 0);
+            maskCtx.putImageData(state.mask, 0, 0);
+            compositeCtx.globalCompositeOperation = 'destination-in';
+            compositeCtx.drawImage(maskCanvas, 0, 0);
+            compositeCtx.globalCompositeOperation = 'source-over';
+        }
+
+        function viewTransform() {
+            const cssW = canvas.width / state.dpr;
+            const cssH = canvas.height / state.dpr;
+            const scale = state.fitScale * state.zoom;
+            return {
+                scale,
+                x: cssW / 2 + state.panX - sourceCanvas.width * scale / 2,
+                y: cssH / 2 + state.panY - sourceCanvas.height * scale / 2
+            };
+        }
+
+        function render() {
+            const width = canvas.width / state.dpr;
+            const height = canvas.height / state.dpr;
+            ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#0a0c17';
+            ctx.fillRect(0, 0, width, height);
+            if (!state.loaded) return;
+
+            const v = viewTransform();
+            const imageW = sourceCanvas.width * v.scale;
+            const imageH = sourceCanvas.height * v.scale;
+            ctx.save();
+            ctx.fillStyle = checkerPattern(ctx);
+            ctx.fillRect(v.x, v.y, imageW, imageH);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(composite, v.x, v.y, imageW, imageH);
+            ctx.restore();
+
+            if (state.tool === 'crop') drawCropOverlay(v, width, height);
+            if ((state.tool === 'erase' || state.tool === 'restore') && state.cursorPoint) drawBrushCursor(v);
+            $('zoomChip').textContent = `${Math.round(state.zoom * 100)}%`;
+            $('cropChip').textContent = `${Math.round(state.crop.w)} × ${Math.round(state.crop.h)} px`;
+        }
+
+        function cropScreenRect(v = viewTransform()) {
+            return {
+                x: v.x + state.crop.x * v.scale,
+                y: v.y + state.crop.y * v.scale,
+                w: state.crop.w * v.scale,
+                h: state.crop.h * v.scale
+            };
+        }
+
+        function drawCropOverlay(v, width, height) {
+            const r = cropScreenRect(v);
+            ctx.save();
+            ctx.fillStyle = 'rgba(2, 3, 9, .64)';
+            ctx.beginPath();
+            ctx.rect(0, 0, width, height);
+            ctx.rect(r.x, r.y, r.w, r.h);
+            ctx.fill('evenodd');
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(r.x, r.y, r.w, r.h);
+            ctx.strokeStyle = 'rgba(255,255,255,.42)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= 2; i++) {
+                ctx.beginPath();
+                ctx.moveTo(r.x + r.w * i / 3, r.y); ctx.lineTo(r.x + r.w * i / 3, r.y + r.h);
+                ctx.moveTo(r.x, r.y + r.h * i / 3); ctx.lineTo(r.x + r.w, r.y + r.h * i / 3);
+                ctx.stroke();
+            }
+            const handles = cropHandles(r);
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#ff3d91';
+            ctx.lineWidth = 2;
+            Object.values(handles).forEach(p => { ctx.beginPath(); ctx.rect(p.x - 5, p.y - 5, 10, 10); ctx.fill(); ctx.stroke(); });
+            ctx.restore();
+        }
+
+        function cropHandles(r) {
+            return {
+                nw: { x: r.x, y: r.y }, n: { x: r.x + r.w / 2, y: r.y }, ne: { x: r.x + r.w, y: r.y },
+                e: { x: r.x + r.w, y: r.y + r.h / 2 }, se: { x: r.x + r.w, y: r.y + r.h },
+                s: { x: r.x + r.w / 2, y: r.y + r.h }, sw: { x: r.x, y: r.y + r.h }, w: { x: r.x, y: r.y + r.h / 2 }
+            };
+        }
+
+        function drawBrushCursor(v) {
+            const p = imageToScreen(state.cursorPoint.x, state.cursorPoint.y, v);
+            const radius = Number($('brushSize').value) * v.scale / 2;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, Math.max(2, radius), 0, Math.PI * 2);
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.stroke();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+            ctx.restore();
+        }
+
+        function imageToScreen(x, y, v = viewTransform()) { return { x: v.x + x * v.scale, y: v.y + y * v.scale }; }
+        function screenToImage(x, y, v = viewTransform()) { return { x: (x - v.x) / v.scale, y: (y - v.y) / v.scale }; }
+        function pointerPosition(event) { const r = canvas.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; }
+        function insideImage(p) { return p.x >= 0 && p.y >= 0 && p.x < sourceCanvas.width && p.y < sourceCanvas.height; }
+
+        async function loadFile(file) {
+            if (!file || !file.type.startsWith('image/')) { showToast('Escolha um arquivo de imagem válido.'); return; }
+            setBusy(true, 'Abrindo imagem…');
+            try {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
+                URL.revokeObjectURL(url);
+                const maxDimension = 10000;
+                const maxPixels = 24000000;
+                if (img.naturalWidth > maxDimension || img.naturalHeight > maxDimension || img.naturalWidth * img.naturalHeight > maxPixels) {
+                    throw new Error('A imagem excede o limite seguro de 24 megapixels ou 10.000 px por lado.');
+                }
+                state.image = img;
+                state.fileName = file.name.replace(/\.[^/.]+$/, '') || 'imagem';
+                sourceCanvas.width = composite.width = maskCanvas.width = img.naturalWidth;
+                sourceCanvas.height = composite.height = maskCanvas.height = img.naturalHeight;
+                sourceCtx.clearRect(0, 0, img.naturalWidth, img.naturalHeight);
+                sourceCtx.drawImage(img, 0, 0);
+                state.sourcePixels = sourceCtx.getImageData(0, 0, img.naturalWidth, img.naturalHeight);
+                state.mask = maskCtx.createImageData(img.naturalWidth, img.naturalHeight);
+                for (let i = 0; i < state.mask.data.length; i += 4) {
+                    state.mask.data[i] = state.mask.data[i + 1] = state.mask.data[i + 2] = 255;
+                    state.mask.data[i + 3] = 255;
+                }
+                state.crop = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
+                state.loaded = true;
+                state.history = [];
+                state.historyIndex = -1;
+                rebuildComposite();
+                fitToScreen();
+                updateUI();
+                $('emptyState').style.display = 'none';
+                $('imageInfo').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+                setStatus(`${file.name} aberta. Escolha uma ferramenta para começar.`);
+                canvas.focus();
+            } catch (error) {
+                showToast(error.message || 'Não foi possível abrir esta imagem.');
+            } finally { setBusy(false); }
+        }
+
+        function fitToScreen() {
+            if (!state.loaded) return;
+            const w = canvas.width / state.dpr;
+            const h = canvas.height / state.dpr;
+            state.fitScale = Math.min((w - 70) / sourceCanvas.width, (h - 70) / sourceCanvas.height);
+            state.fitScale = Math.max(.001, state.fitScale);
+            state.zoom = 1; state.panX = 0; state.panY = 0;
+            render();
+        }
+
+        function selectTool(tool) {
+            state.tool = tool;
+            document.querySelectorAll('.tool').forEach(btn => btn.classList.toggle('active', btn.dataset.tool === tool));
+            document.querySelectorAll('.section').forEach(section => section.classList.remove('visible'));
+            const target = tool === 'crop' ? 'cropOptions' : (tool === 'erase' || tool === 'restore') ? 'brushOptions' : tool === 'magic' ? 'magicOptions' : 'panOptions';
+            $(target).classList.add('visible');
+            if (tool === 'erase' || tool === 'restore') $('brushTitle').textContent = tool === 'erase' ? 'Borracha' : 'Restauração';
+            canvas.style.cursor = tool === 'pan' ? 'grab' : tool === 'magic' ? 'crosshair' : 'default';
+            setStatus({ crop: 'Arraste as bordas ou os cantos para definir o recorte.', erase: 'Arraste para apagar o fundo.', restore: 'Arraste para restaurar pixels.', magic: 'Clique em uma cor para remover tons semelhantes.', pan: 'Arraste para mover a imagem.' }[tool]);
+            render();
+        }
+
+        function hitCrop(screen) {
+            const r = cropScreenRect();
+            const handles = cropHandles(r);
+            let nearest = null, distance = Infinity;
+            Object.entries(handles).forEach(([name, p]) => {
+                const d = Math.hypot(screen.x - p.x, screen.y - p.y);
+                if (d < distance && d <= 14) { nearest = name; distance = d; }
+            });
+            if (nearest) return nearest;
+            if (screen.x >= r.x && screen.x <= r.x + r.w && screen.y >= r.y && screen.y <= r.y + r.h) return 'move';
+            return null;
+        }
+
+        function startCrop(screen, imagePoint) {
+            const hit = hitCrop(screen);
+            if (!hit) return;
+            state.action = { type: 'crop', handle: hit, start: imagePoint, original: cropCopy(state.crop) };
+        }
+
+        function constrainCrop(crop, handle) {
+            const min = 8;
+            crop.w = Math.max(min, crop.w); crop.h = Math.max(min, crop.h);
+            crop.x = clamp(crop.x, 0, sourceCanvas.width - min);
+            crop.y = clamp(crop.y, 0, sourceCanvas.height - min);
+            crop.w = Math.min(crop.w, sourceCanvas.width - crop.x);
+            crop.h = Math.min(crop.h, sourceCanvas.height - crop.y);
+            const aspect = $('aspectSelect').value;
+            if (aspect !== 'free' && handle !== 'move') {
+                const ratio = Number(aspect);
+                const anchoredRight = handle.includes('w');
+                const anchoredBottom = handle.includes('n');
+                const oldRight = crop.x + crop.w, oldBottom = crop.y + crop.h;
+                if (crop.w / crop.h > ratio) crop.w = crop.h * ratio; else crop.h = crop.w / ratio;
+                if (anchoredRight) crop.x = oldRight - crop.w;
+                if (anchoredBottom) crop.y = oldBottom - crop.h;
+                crop.x = clamp(crop.x, 0, sourceCanvas.width - crop.w);
+                crop.y = clamp(crop.y, 0, sourceCanvas.height - crop.h);
+            }
+            return crop;
+        }
+
+        function moveCrop(point) {
+            const a = state.action;
+            const dx = point.x - a.start.x, dy = point.y - a.start.y;
+            const o = a.original;
+            if (a.handle === 'move') {
+                state.crop.x = clamp(o.x + dx, 0, sourceCanvas.width - o.w);
+                state.crop.y = clamp(o.y + dy, 0, sourceCanvas.height - o.h);
+                state.crop.w = o.w; state.crop.h = o.h;
+            } else {
+                let left = o.x, top = o.y, right = o.x + o.w, bottom = o.y + o.h;
+                if (a.handle.includes('w')) left += dx;
+                if (a.handle.includes('e')) right += dx;
+                if (a.handle.includes('n')) top += dy;
+                if (a.handle.includes('s')) bottom += dy;
+                left = clamp(left, 0, right - 8); top = clamp(top, 0, bottom - 8);
+                right = clamp(right, left + 8, sourceCanvas.width); bottom = clamp(bottom, top + 8, sourceCanvas.height);
+                state.crop = constrainCrop({ x: left, y: top, w: right - left, h: bottom - top }, a.handle);
+            }
+            updateCropFields(); render();
+        }
+
+        function applyBrush(point, restoring) {
+            const radius = Number($('brushSize').value) / 2;
+            const hardness = Number($('brushHardness').value) / 100;
+            const data = state.mask.data;
+            const minX = Math.max(0, Math.floor(point.x - radius));
+            const maxX = Math.min(sourceCanvas.width - 1, Math.ceil(point.x + radius));
+            const minY = Math.max(0, Math.floor(point.y - radius));
+            const maxY = Math.min(sourceCanvas.height - 1, Math.ceil(point.y + radius));
+            const hardRadius = radius * hardness;
+            for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+                const distance = Math.hypot(x - point.x, y - point.y);
+                if (distance > radius) continue;
+                const strength = distance <= hardRadius || radius === hardRadius ? 1 : 1 - (distance - hardRadius) / (radius - hardRadius);
+                const index = (y * sourceCanvas.width + x) * 4 + 3;
+                data[index] = restoring ? Math.max(data[index], Math.round(255 * strength)) : Math.min(data[index], Math.round(255 * (1 - strength)));
+            }
+        }
+
+        function brushLine(from, to, restoring) {
+            const distance = Math.hypot(to.x - from.x, to.y - from.y);
+            const step = Math.max(1, Number($('brushSize').value) / 7);
+            const count = Math.max(1, Math.ceil(distance / step));
+            for (let i = 0; i <= count; i++) applyBrush({ x: from.x + (to.x - from.x) * i / count, y: from.y + (to.y - from.y) * i / count }, restoring);
+            rebuildComposite(); render();
+        }
+
+        function pushHistory(entry) {
+            if (!entry) return;
+            if (state.historyIndex < state.history.length - 1) state.history.splice(state.historyIndex + 1);
+            state.history.push(entry);
+            state.historyIndex = state.history.length - 1;
+            const historyBytes = () => state.history.reduce((sum, item) => sum + (item.bytes || 64), 0);
+            while ((state.history.length > 20 || historyBytes() > 96 * 1024 * 1024) && state.history.length > 1) {
+                state.history.shift();
+                state.historyIndex--;
+            }
+            updateHistoryButtons();
+        }
+
+        function snapshotAlpha() {
+            const alpha = new Uint8ClampedArray(sourceCanvas.width * sourceCanvas.height);
+            for (let pixel = 0; pixel < alpha.length; pixel++) alpha[pixel] = state.mask.data[pixel * 4 + 3];
+            return alpha;
+        }
+
+        function createMaskEntry(before, label) {
+            let count = 0;
+            for (let pixel = 0; pixel < before.length; pixel++) if (before[pixel] !== state.mask.data[pixel * 4 + 3]) count++;
+            if (!count) return null;
+            const indices = new Uint32Array(count);
+            const oldAlpha = new Uint8ClampedArray(count);
+            const newAlpha = new Uint8ClampedArray(count);
+            let cursor = 0;
+            for (let pixel = 0; pixel < before.length; pixel++) {
+                const current = state.mask.data[pixel * 4 + 3];
+                if (before[pixel] === current) continue;
+                indices[cursor] = pixel; oldAlpha[cursor] = before[pixel]; newAlpha[cursor] = current; cursor++;
+            }
+            return { type: 'mask', indices, before: oldAlpha, after: newAlpha, label, bytes: indices.byteLength + oldAlpha.byteLength + newAlpha.byteLength };
+        }
+
+        function applyHistory(entry, direction) {
+            if (entry.type === 'mask') {
+                const values = direction === 'undo' ? entry.before : entry.after;
+                for (let i = 0; i < entry.indices.length; i++) state.mask.data[entry.indices[i] * 4 + 3] = values[i];
+            } else state.crop = cropCopy(direction === 'undo' ? entry.before : entry.after);
+            rebuildComposite(); updateCropFields(); render();
+        }
+
+        function undo() {
+            if (state.historyIndex < 0) return;
+            const entry = state.history[state.historyIndex--];
+            applyHistory(entry, 'undo'); updateHistoryButtons(); setStatus(`Desfeito: ${entry.label}.`);
+        }
+
+        function redo() {
+            if (state.historyIndex >= state.history.length - 1) return;
+            const entry = state.history[++state.historyIndex];
+            applyHistory(entry, 'redo'); updateHistoryButtons(); setStatus(`Refeito: ${entry.label}.`);
+        }
+
+        function updateHistoryButtons() {
+            $('undoBtn').disabled = state.historyIndex < 0;
+            $('redoBtn').disabled = state.historyIndex >= state.history.length - 1;
+        }
+
+        function magicRemove(start) {
+            if (!insideImage(start)) return;
+            setBusy(true, 'Selecionando pixels…');
+            setTimeout(() => {
+                const before = snapshotAlpha();
+                const w = sourceCanvas.width, h = sourceCanvas.height;
+                const sx = Math.floor(start.x), sy = Math.floor(start.y);
+                const pixels = state.sourcePixels.data;
+                const sampleIndex = (sy * w + sx) * 4;
+                const sr = pixels[sampleIndex], sg = pixels[sampleIndex + 1], sb = pixels[sampleIndex + 2];
+                const threshold = Number($('tolerance').value) * 4.42;
+                const softness = Number($('magicSoftness').value) / 100;
+                const inner = threshold * (1 - softness);
+                const mask = state.mask.data;
+                const visited = new Uint8Array(w * h);
+                const matches = index => {
+                    const p = index * 4;
+                    const dr = pixels[p] - sr, dg = pixels[p + 1] - sg, db = pixels[p + 2] - sb;
+                    return Math.sqrt(dr * dr + dg * dg + db * db);
+                };
+                const removeAt = (index, distance) => {
+                    const alphaIndex = index * 4 + 3;
+                    const remaining = softness > 0 && distance > inner ? Math.round(255 * (distance - inner) / Math.max(1, threshold - inner)) : 0;
+                    mask[alphaIndex] = Math.min(mask[alphaIndex], remaining);
+                };
+
+                if ($('contiguous').checked) {
+                    const queue = new Uint32Array(w * h);
+                    let head = 0, tail = 0;
+                    queue[tail++] = sy * w + sx;
+                    visited[sy * w + sx] = 1;
+                    while (head < tail) {
+                        const index = queue[head++];
+                        const distance = matches(index);
+                        if (distance > threshold) continue;
+                        removeAt(index, distance);
+                        const x = index % w;
+                        const add = next => { if (!visited[next]) { visited[next] = 1; queue[tail++] = next; } };
+                        if (x > 0) add(index - 1);
+                        if (x < w - 1) add(index + 1);
+                        if (index >= w) add(index - w);
+                        if (index < w * (h - 1)) add(index + w);
+                    }
+                } else {
+                    for (let index = 0; index < w * h; index++) {
+                        const distance = matches(index);
+                        if (distance <= threshold) removeAt(index, distance);
+                    }
+                }
+                pushHistory(createMaskEntry(before, 'caneta mágica'));
+                rebuildComposite(); render(); setBusy(false);
+                setStatus('Fundo removido. Ajuste a tolerância ou refine com a borracha e a restauração.');
+            }, 30);
+        }
+
+        function onPointerDown(event) {
+            if (!state.loaded || event.button > 0) return;
+            canvas.setPointerCapture(event.pointerId);
+            state.pointerDown = true; state.pointerId = event.pointerId;
+            const screen = pointerPosition(event);
+            const point = screenToImage(screen.x, screen.y);
+            if (state.spaceDown || state.tool === 'pan') {
+                state.action = { type: 'pan', screen, panX: state.panX, panY: state.panY };
+                canvas.style.cursor = 'grabbing'; return;
+            }
+            if (state.tool === 'crop') startCrop(screen, point);
+            else if ((state.tool === 'erase' || state.tool === 'restore') && insideImage(point)) {
+                state.action = { type: 'brush', before: snapshotAlpha() };
+                state.lastPoint = point;
+                applyBrush(point, state.tool === 'restore'); rebuildComposite(); render();
+            } else if (state.tool === 'magic') magicRemove(point);
+        }
+
+        function onPointerMove(event) {
+            if (!state.loaded) return;
+            const screen = pointerPosition(event);
+            const point = screenToImage(screen.x, screen.y);
+            state.cursorPoint = insideImage(point) ? point : null;
+            if (!state.pointerDown || event.pointerId !== state.pointerId) { render(); return; }
+            if (!state.action) return;
+            if (state.action.type === 'pan') {
+                state.panX = state.action.panX + screen.x - state.action.screen.x;
+                state.panY = state.action.panY + screen.y - state.action.screen.y;
+                render();
+            } else if (state.action.type === 'crop') moveCrop(point);
+            else if (state.action.type === 'brush') {
+                const clipped = { x: clamp(point.x, 0, sourceCanvas.width - 1), y: clamp(point.y, 0, sourceCanvas.height - 1) };
+                brushLine(state.lastPoint, clipped, state.tool === 'restore'); state.lastPoint = clipped;
+            }
+        }
+
+        function onPointerUp(event) {
+            if (!state.pointerDown || event.pointerId !== state.pointerId) return;
+            if (state.action?.type === 'brush') pushHistory(createMaskEntry(state.action.before, state.tool === 'restore' ? 'restauração' : 'borracha'));
+            if (state.action?.type === 'crop') {
+                const before = state.action.original, after = cropCopy(state.crop);
+                if (Math.abs(before.x - after.x) + Math.abs(before.y - after.y) + Math.abs(before.w - after.w) + Math.abs(before.h - after.h) > 1) pushHistory({ type: 'crop', before, after, label: 'recorte' });
+            }
+            state.pointerDown = false; state.pointerId = null; state.action = null; state.lastPoint = null;
+            canvas.style.cursor = state.tool === 'pan' ? 'grab' : state.tool === 'magic' ? 'crosshair' : 'default';
+        }
+
+        function zoomAt(screen, factor) {
+            if (!state.loaded) return;
+            const before = screenToImage(screen.x, screen.y);
+            state.zoom = clamp(state.zoom * factor, .1, 20);
+            const after = imageToScreen(before.x, before.y);
+            state.panX += screen.x - after.x; state.panY += screen.y - after.y;
+            render();
+        }
+
+        function updateCropFields() {
+            $('cropWidth').value = Math.round(state.crop.w);
+            $('cropHeight').value = Math.round(state.crop.h);
+            $('cropChip').textContent = state.loaded ? `${Math.round(state.crop.w)} × ${Math.round(state.crop.h)} px` : 'Sem imagem';
+        }
+
+        function updateUI() {
+            ['exportBtn', 'clearMaskBtn', 'restoreMaskBtn'].forEach(id => $(id).disabled = !state.loaded);
+            updateCropFields(); updateHistoryButtons(); render();
+        }
+
+        function resetCrop(centered = false) {
+            if (!state.loaded) return;
+            const before = cropCopy(state.crop);
+            const aspect = $('aspectSelect').value;
+            if (!centered || aspect === 'free') state.crop = { x: 0, y: 0, w: sourceCanvas.width, h: sourceCanvas.height };
+            else {
+                const ratio = Number(aspect);
+                let w = sourceCanvas.width, h = w / ratio;
+                if (h > sourceCanvas.height) { h = sourceCanvas.height; w = h * ratio; }
+                state.crop = { x: (sourceCanvas.width - w) / 2, y: (sourceCanvas.height - h) / 2, w, h };
+            }
+            pushHistory({ type: 'crop', before, after: cropCopy(state.crop), label: 'recorte' });
+            updateCropFields(); render();
+        }
+
+        function replaceMask(alpha, label) {
+            if (!state.loaded) return;
+            const before = snapshotAlpha();
+            for (let i = 3; i < state.mask.data.length; i += 4) state.mask.data[i] = alpha;
+            pushHistory(createMaskEntry(before, label)); rebuildComposite(); render();
+        }
+
+        function openExport() {
+            const w = Math.max(1, Math.round(state.crop.w)), h = Math.max(1, Math.round(state.crop.h));
+            $('exportWidth').value = w; $('exportHeight').value = h;
+            $('exportModal').classList.add('open');
+        }
+
+        function exportImage() {
+            const outW = clamp(parseInt($('exportWidth').value, 10) || 0, 1, 10000);
+            const outH = clamp(parseInt($('exportHeight').value, 10) || 0, 1, 10000);
+            if (!outW || !outH) { showToast('Informe dimensões válidas para exportar.'); return; }
+            setBusy(true, 'Gerando arquivo…');
+            const out = document.createElement('canvas'); out.width = outW; out.height = outH;
+            const outCtx = out.getContext('2d');
+            const format = $('formatSelect').value;
+            const c = state.crop;
+            const tempMask = document.createElement('canvas'); tempMask.width = outW; tempMask.height = outH;
+            const tempCtx = tempMask.getContext('2d'); tempCtx.drawImage(maskCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
+            if (format !== 'image/jpeg') {
+                outCtx.drawImage(sourceCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
+                outCtx.globalCompositeOperation = 'destination-in'; outCtx.drawImage(tempMask, 0, 0); outCtx.globalCompositeOperation = 'source-over';
+            } else {
+                outCtx.fillStyle = $('backgroundColor').value; outCtx.fillRect(0, 0, outW, outH);
+                const cut = document.createElement('canvas'); cut.width = outW; cut.height = outH;
+                const cutCtx = cut.getContext('2d'); cutCtx.drawImage(sourceCanvas, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
+                cutCtx.globalCompositeOperation = 'destination-in'; cutCtx.drawImage(tempMask, 0, 0);
+                outCtx.drawImage(cut, 0, 0);
+            }
+            const quality = Number($('quality').value) / 100;
+            out.toBlob(blob => {
+                setBusy(false);
+                if (!blob) { showToast('Este navegador não conseguiu gerar o formato escolhido.'); return; }
+                const extension = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg';
+                const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${state.fileName}-editada.${extension}`; link.click();
+                setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+                $('exportModal').classList.remove('open'); setStatus(`Imagem exportada em ${extension.toUpperCase()}.`);
+            }, format, quality);
+        }
+
+        $('fileInput').addEventListener('change', event => { loadFile(event.target.files[0]); event.target.value = ''; });
+        document.querySelectorAll('.tool').forEach(button => button.addEventListener('click', () => selectTool(button.dataset.tool)));
+        $('undoBtn').addEventListener('click', undo); $('redoBtn').addEventListener('click', redo);
+        $('fitBtn').addEventListener('click', fitToScreen);
+        $('zoomInBtn').addEventListener('click', () => zoomAt({ x: canvas.width / state.dpr / 2, y: canvas.height / state.dpr / 2 }, 1.2));
+        $('zoomOutBtn').addEventListener('click', () => zoomAt({ x: canvas.width / state.dpr / 2, y: canvas.height / state.dpr / 2 }, 1 / 1.2));
+        $('resetCropBtn').addEventListener('click', () => resetCrop(false));
+        $('centerCropBtn').addEventListener('click', () => resetCrop(true));
+        $('aspectSelect').addEventListener('change', () => { if (state.loaded && $('aspectSelect').value !== 'free') resetCrop(true); });
+        $('clearMaskBtn').addEventListener('click', () => replaceMask(0, 'remover tudo'));
+        $('restoreMaskBtn').addEventListener('click', () => replaceMask(255, 'restaurar tudo'));
+        $('exportBtn').addEventListener('click', openExport);
+        $('cancelExportBtn').addEventListener('click', () => $('exportModal').classList.remove('open'));
+        $('downloadBtn').addEventListener('click', exportImage);
+        $('settingsToggle').addEventListener('click', () => $('optionsPanel').classList.toggle('open'));
+        $('exportModal').addEventListener('click', event => { if (event.target === $('exportModal')) $('exportModal').classList.remove('open'); });
+
+        [['brushSize', 'brushSizeValue', v => `${v} px`], ['brushHardness', 'brushHardnessValue', v => `${v}%`], ['tolerance', 'toleranceValue', v => v], ['magicSoftness', 'magicSoftnessValue', v => `${v}%`], ['quality', 'qualityValue', v => `${v}%`]].forEach(([input, output, format]) => {
+            $(input).addEventListener('input', () => { $(output).textContent = format($(input).value); render(); });
+        });
+
+        $('formatSelect').addEventListener('change', () => {
+            const format = $('formatSelect').value;
+            $('qualityControl').style.display = format === 'image/png' ? 'none' : 'block';
+            $('backgroundControl').style.display = format === 'image/jpeg' ? 'block' : 'none';
+        });
+
+        let exportRatio = 1;
+        $('exportWidth').addEventListener('focus', () => { exportRatio = state.crop.w / state.crop.h; });
+        $('exportHeight').addEventListener('focus', () => { exportRatio = state.crop.w / state.crop.h; });
+        $('exportWidth').addEventListener('input', () => { if ($('lockExportRatio').checked) $('exportHeight').value = Math.max(1, Math.round(Number($('exportWidth').value) / exportRatio)); });
+        $('exportHeight').addEventListener('input', () => { if ($('lockExportRatio').checked) $('exportWidth').value = Math.max(1, Math.round(Number($('exportHeight').value) * exportRatio)); });
+
+        canvas.addEventListener('pointerdown', onPointerDown);
+        canvas.addEventListener('pointermove', onPointerMove);
+        canvas.addEventListener('pointerup', onPointerUp);
+        canvas.addEventListener('pointercancel', onPointerUp);
+        canvas.addEventListener('pointerleave', () => { if (!state.pointerDown) { state.cursorPoint = null; render(); } });
+        canvas.addEventListener('wheel', event => { event.preventDefault(); zoomAt(pointerPosition(event), event.deltaY < 0 ? 1.12 : 1 / 1.12); }, { passive: false });
+
+        window.addEventListener('keydown', event => {
+            if (event.target.matches('input, select')) return;
+            if (event.code === 'Space') { state.spaceDown = true; event.preventDefault(); canvas.style.cursor = 'grab'; }
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); }
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redo(); }
+            if (event.key === 'Escape') $('exportModal').classList.remove('open');
+        });
+        window.addEventListener('keyup', event => { if (event.code === 'Space') { state.spaceDown = false; canvas.style.cursor = state.tool === 'pan' ? 'grab' : 'default'; } });
+
+        ['dragenter', 'dragover'].forEach(type => stage.addEventListener(type, event => { event.preventDefault(); stage.classList.add('drop-active'); }));
+        ['dragleave', 'drop'].forEach(type => stage.addEventListener(type, event => { event.preventDefault(); stage.classList.remove('drop-active'); }));
+        stage.addEventListener('drop', event => loadFile(event.dataTransfer.files[0]));
+
+        new ResizeObserver(resizeCanvas).observe(stage);
+        selectTool('crop');
+        resizeCanvas();
+    })();
+    </script>
+</body>
+</html>
