@@ -84,6 +84,11 @@
         .tool { min-height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
         .tool span:first-child { font-size: 21px; line-height: 1; }
         .tool.active { background: rgba(255, 61, 145, .15); border-color: var(--accent); color: #ff8aba; }
+        .collage-list { display: grid; gap: 7px; max-height: 190px; overflow-y: auto; margin: 10px 0; }
+        .collage-item { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+        .collage-item img { width: 34px; height: 34px; flex: 0 0 auto; object-fit: contain; background: #30344d; border-radius: 5px; }
+        .collage-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+        .collage-item button { min-height: 26px; margin-left: auto; padding: 2px 7px; }
         .divider { height: 1px; margin: 16px 0; background: var(--border); }
         .left-settings .check { align-items: flex-start; }
         .checker-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 9px 0 13px; }
@@ -206,6 +211,7 @@
                     <button class="tool" data-tool="erase"><span>◯</span><span>Apagar</span></button>
                     <button class="tool" data-tool="restore"><span>●</span><span>Restaurar</span></button>
                     <button class="tool" data-tool="magic"><span>✦</span><span>Mágica</span></button>
+                    <button class="tool" data-tool="collage"><span>▦</span><span>Colagem</span></button>
                 </div>
                 <div class="divider"></div>
                 <div class="left-settings">
@@ -292,6 +298,18 @@
                     <p class="hint">Clique em uma cor de fundo. A tolerância controla a quantidade de tons semelhantes removidos.</p>
                 </div>
 
+                <div id="collageOptions" class="section">
+                    <p class="panel-title">Colagem</p>
+                    <label class="file-button full" style="justify-content:center"><input id="collageFileInput" type="file" accept="image/png,.png" multiple><span>Adicionar PNGs</span></label>
+                    <div id="collageList" class="collage-list"><p class="hint">Nenhuma imagem adicionada.</p></div>
+                    <div class="control"><div class="control-row"><label for="collageColumns">Colunas</label><span id="collageColumnsValue" class="value">3</span></div><input id="collageColumns" type="range" min="1" max="8" value="3"></div>
+                    <div class="dimensions"><label>Célula (px)<input id="collageCellWidth" type="number" min="20" max="4000" value="500"></label><label>Altura<input id="collageCellHeight" type="number" min="20" max="4000" value="500"></label></div>
+                    <div class="control"><div class="control-row"><label for="collageGap">Espaçamento</label><span id="collageGapValue" class="value">20 px</span></div><input id="collageGap" type="range" min="0" max="300" value="20"></div>
+                    <div class="control"><div class="control-row"><label for="collageFit">Ajuste da imagem</label></div><select id="collageFit"><option value="contain">Conter inteira</option><option value="cover">Preencher célula</option><option value="stretch">Esticar</option></select></div>
+                    <div class="control"><div class="control-row"><label for="collageBackground">Fundo</label></div><select id="collageBackground"><option value="transparent">Transparente</option><option value="color">Cor personalizada</option></select></div>
+                    <div id="collageColorControl" class="control" style="display:none"><input id="collageBackgroundColor" type="color" value="#ffffff"></div>
+                    <p id="collageDimensions" class="hint">Adicione imagens para começar.</p>
+                </div>
             </aside>
         </div>
     </main>
@@ -366,7 +384,9 @@
             redoStack: [],
             checkerDark: false,
             spaceDown: false,
-            dpr: 1
+            dpr: 1,
+            mode: 'single',
+            collage: { items: [], columns: 3, cellWidth: 500, cellHeight: 500, gap: 20, fit: 'contain', background: 'transparent', backgroundColor: '#ffffff' }
         };
 
         const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -426,7 +446,43 @@
             };
         }
 
+        function collageSize() {
+            const c = state.collage;
+            const rows = Math.ceil(c.items.length / c.columns);
+            return { rows, width: Math.max(1, c.columns * c.cellWidth + Math.max(0, c.columns - 1) * c.gap), height: Math.max(1, rows * c.cellHeight + Math.max(0, rows - 1) * c.gap) };
+        }
+
+        function drawCollage(target, scale = 1) {
+            const c = state.collage, size = collageSize();
+            target.clearRect(0, 0, size.width * scale, size.height * scale);
+            if (c.background !== 'transparent') { target.fillStyle = c.backgroundColor; target.fillRect(0, 0, size.width * scale, size.height * scale); }
+            target.imageSmoothingEnabled = !$('pixelatedMode').checked;
+            c.items.forEach((item, index) => {
+                const col = index % c.columns, row = Math.floor(index / c.columns);
+                const x = (col * (c.cellWidth + c.gap)) * scale, y = (row * (c.cellHeight + c.gap)) * scale;
+                let dw = c.cellWidth * scale, dh = c.cellHeight * scale, dx = x, dy = y;
+                if (c.fit !== 'stretch') {
+                    const ratio = c.fit === 'cover' ? Math.max(c.cellWidth / item.width, c.cellHeight / item.height) : Math.min(c.cellWidth / item.width, c.cellHeight / item.height);
+                    dw = item.width * ratio * scale; dh = item.height * ratio * scale;
+                    dx = x + (c.cellWidth * scale - dw) / 2; dy = y + (c.cellHeight * scale - dh) / 2;
+                }
+                target.drawImage(item.image, dx, dy, dw, dh);
+            });
+            return size;
+        }
+
+        function renderCollage() {
+            const width = canvas.width / state.dpr, height = canvas.height / state.dpr;
+            ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0); ctx.clearRect(0, 0, width, height); ctx.fillStyle = '#0a0c17'; ctx.fillRect(0, 0, width, height);
+            const size = collageSize();
+            if (!state.collage.items.length) return;
+            const scale = Math.min((width - 60) / size.width, (height - 60) / size.height);
+            ctx.save(); ctx.translate((width - size.width * scale) / 2, (height - size.height * scale) / 2); drawCollage(ctx, scale); ctx.restore();
+            $('zoomChip').textContent = `${Math.round(scale * 100)}%`; $('cropChip').textContent = `${size.width} × ${size.height} px`;
+        }
+
         function render() {
+            if (state.mode === 'collage') { renderCollage(); return; }
             const width = canvas.width / state.dpr;
             const height = canvas.height / state.dpr;
             ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
@@ -600,16 +656,32 @@
         }
 
         function selectTool(tool) {
+            state.mode = tool === 'collage' ? 'collage' : 'single';
             state.tool = tool;
             document.querySelectorAll('.tool').forEach(btn => btn.classList.toggle('active', btn.dataset.tool === tool));
             document.querySelectorAll('.section').forEach(section => section.classList.remove('visible'));
-            const target = tool === 'crop' ? 'cropOptions' : (tool === 'erase' || tool === 'restore') ? 'brushOptions' : 'magicOptions';
+            const target = tool === 'collage' ? 'collageOptions' : tool === 'crop' ? 'cropOptions' : (tool === 'erase' || tool === 'restore') ? 'brushOptions' : 'magicOptions';
             $(target).classList.add('visible');
             if (tool === 'erase' || tool === 'restore') $('brushTitle').textContent = tool === 'erase' ? 'Borracha' : 'Restauração';
             canvas.style.cursor = tool === 'magic' ? 'crosshair' : 'default';
-            setStatus({ crop: 'Arraste as bordas ou os cantos para definir o recorte.', erase: 'Arraste para apagar o fundo dentro do recorte.', restore: 'Arraste para restaurar pixels dentro do recorte.', magic: 'Clique em uma cor dentro do recorte para remover tons semelhantes.' }[tool]);
+            setStatus({ crop: 'Arraste as bordas ou os cantos para definir o recorte.', erase: 'Arraste para apagar o fundo dentro do recorte.', restore: 'Arraste para restaurar pixels dentro do recorte.', magic: 'Clique em uma cor dentro do recorte para remover tons semelhantes.', collage: 'Adicione PNGs e ajuste a grade da colagem.' }[tool]);
             updateHistoryButtons();
             render();
+        }
+
+        function updateCollageUI() {
+            const c = state.collage, size = collageSize();
+            $('collageColumnsValue').textContent = c.columns; $('collageGapValue').textContent = `${c.gap} px`;
+            $('collageDimensions').textContent = c.items.length ? `Resultado: ${size.width} × ${size.height} px` : 'Adicione imagens para começar.';
+            const list = $('collageList'); list.innerHTML = '';
+            if (!c.items.length) { list.innerHTML = '<p class="hint">Nenhuma imagem adicionada.</p>'; return; }
+            c.items.forEach((item, index) => { const row = document.createElement('div'); row.className = 'collage-item'; const image = document.createElement('img'); image.src = item.url; const name = document.createElement('span'); name.textContent = `${index + 1}. ${item.name}`; const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.addEventListener('click', () => { URL.revokeObjectURL(item.url); c.items.splice(index, 1); updateCollageUI(); updateUI(); }); row.append(image, name, remove); list.appendChild(row); });
+        }
+
+        function loadCollageFiles(files) {
+            const accepted = Array.from(files).filter(file => file.type === 'image/png' || file.name.toLowerCase().endsWith('.png'));
+            if (!accepted.length) { showToast('Escolha arquivos PNG.'); return; }
+            accepted.forEach(file => { const url = URL.createObjectURL(file), image = new Image(); image.onload = () => { state.collage.items.push({ name: file.name, url, image, width: image.naturalWidth, height: image.naturalHeight }); updateCollageUI(); updateUI(); }; image.onerror = () => URL.revokeObjectURL(url); image.src = url; });
         }
 
         function hitCrop(screen) {
@@ -908,7 +980,8 @@
         }
 
         function updateUI() {
-            $('exportBtn').disabled = !state.loaded;
+            $('exportBtn').disabled = state.mode === 'collage' ? !state.collage.items.length : !state.loaded;
+            $('emptyState').style.display = state.mode === 'collage' && state.collage.items.length ? 'none' : (!state.loaded && state.mode !== 'collage' ? 'grid' : 'none');
             updateCropFields(); updateHistoryButtons(); render();
         }
 
@@ -928,7 +1001,8 @@
         }
 
         function openExport() {
-            const w = Math.max(1, Math.round(state.crop.w)), h = Math.max(1, Math.round(state.crop.h));
+            const collage = state.mode === 'collage', size = collage ? collageSize() : null;
+            const w = collage ? size.width : Math.max(1, Math.round(state.crop.w)), h = collage ? size.height : Math.max(1, Math.round(state.crop.h));
             $('exportWidth').value = w; $('exportHeight').value = h;
             $('exportModal').classList.add('open');
         }
@@ -943,6 +1017,14 @@
             outCtx.imageSmoothingEnabled = !$('pixelatedMode').checked;
             outCtx.imageSmoothingQuality = 'high';
             const format = $('formatSelect').value;
+            if (state.mode === 'collage') {
+                const size = collageSize(), art = document.createElement('canvas'); art.width = size.width; art.height = size.height; drawCollage(art.getContext('2d'), 1);
+                if (format === 'image/jpeg') { outCtx.fillStyle = $('backgroundColor').value; outCtx.fillRect(0, 0, outW, outH); }
+                outCtx.drawImage(art, 0, 0, outW, outH);
+                const quality = Number($('quality').value) / 100;
+                out.toBlob(blob => { setBusy(false); if (!blob) { showToast('NÃ£o foi possÃ­vel gerar o arquivo.'); return; } const extension = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'; const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `colagem.${extension}`; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); $('exportModal').classList.remove('open'); }, format, quality);
+                return;
+            }
             const c = state.crop;
             const tempMask = document.createElement('canvas'); tempMask.width = outW; tempMask.height = outH;
             const tempCtx = tempMask.getContext('2d');
@@ -971,7 +1053,14 @@
             }, format, quality);
         }
 
-        $('fileInput').addEventListener('change', event => { loadFile(event.target.files[0]); event.target.value = ''; });
+        $('fileInput').addEventListener('change', event => { selectTool('crop'); loadFile(event.target.files[0]); event.target.value = ''; });
+        $('collageFileInput').addEventListener('change', event => { loadCollageFiles(event.target.files); event.target.value = ''; });
+        $('collageColumns').addEventListener('input', event => { state.collage.columns = Number(event.target.value); updateCollageUI(); render(); });
+        $('collageGap').addEventListener('input', event => { state.collage.gap = Number(event.target.value); updateCollageUI(); render(); });
+        ['collageCellWidth', 'collageCellHeight'].forEach(id => $(id).addEventListener('input', event => { state.collage[id === 'collageCellWidth' ? 'cellWidth' : 'cellHeight'] = clamp(Number(event.target.value) || 20, 20, 4000); updateCollageUI(); render(); }));
+        $('collageFit').addEventListener('change', event => { state.collage.fit = event.target.value; render(); });
+        $('collageBackground').addEventListener('change', event => { state.collage.background = event.target.value; $('collageColorControl').style.display = event.target.value === 'color' ? 'block' : 'none'; render(); });
+        $('collageBackgroundColor').addEventListener('input', event => { state.collage.backgroundColor = event.target.value; render(); });
         document.querySelectorAll('.tool').forEach(button => button.addEventListener('click', () => selectTool(button.dataset.tool)));
         $('undoBtn').addEventListener('click', undo); $('redoBtn').addEventListener('click', redo);
         $('resetCropBtn').addEventListener('click', () => resetCrop(false));
@@ -1037,7 +1126,7 @@
 
         ['dragenter', 'dragover'].forEach(type => stage.addEventListener(type, event => { event.preventDefault(); stage.classList.add('drop-active'); }));
         ['dragleave', 'drop'].forEach(type => stage.addEventListener(type, event => { event.preventDefault(); stage.classList.remove('drop-active'); }));
-        stage.addEventListener('drop', event => loadFile(event.dataTransfer.files[0]));
+        stage.addEventListener('drop', event => state.mode === 'collage' ? loadCollageFiles(event.dataTransfer.files) : loadFile(event.dataTransfer.files[0]));
 
         new ResizeObserver(resizeCanvas).observe(stage);
         selectTool('crop');
